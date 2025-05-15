@@ -11,6 +11,7 @@ const scoreDisplay = document.getElementById('score');
 const powerUpMessage = document.getElementById('powerUpMessage');
 
 let player, enemies, bullets, enemyBullets, powerUp, score, gameState, difficulty;
+let enemyRows, enemySpeed, enemyShootInterval, lastEnemyShotTime;
 let lastShotTime = 0;
 const shootInterval = 300; // ms
 
@@ -22,47 +23,38 @@ function initGame() {
     powerUp = null;
     score = 0;
     gameState = 'playing';
+    lastEnemyShotTime = 0;
     scoreDisplay.textContent = `Score: ${score}`;
     powerUpMessage.classList.remove('power-up-active');
 }
 
 function setDifficulty(diff) {
     difficulty = diff;
-    let enemyRows, enemySpeed, enemyShootInterval;
-
+    let settings;
     switch (difficulty) {
         case 'easy':
-            enemyRows = 5;
-            enemySpeed = 1;
-            enemyShootInterval = 2000; // Rzadsze strzały
+            settings = { enemyRows: 5, enemySpeed: 1, enemyShootInterval: 2000 };
             break;
         case 'medium':
-            enemyRows = 6;
-            enemySpeed = 1.5;
-            enemyShootInterval = 1500; // Częstsze strzały
+            settings = { enemyRows: 6, enemySpeed: 1.5, enemyShootInterval: 1500 };
             break;
         case 'hard':
-            enemyRows = 7;
-            enemySpeed = 2;
-            enemyShootInterval = 1000; // Najczęstsze strzały
+            settings = { enemyRows: 7, enemySpeed: 2, enemyShootInterval: 1000 };
             break;
         default:
             console.error('Unknown difficulty:', difficulty);
-            enemyRows = 5;
-            enemySpeed = 1;
-            enemyShootInterval = 2000;
+            settings = { enemyRows: 5, enemySpeed: 1, enemyShootInterval: 2000 };
     }
-
-    console.log(`Setting difficulty: ${difficulty}, enemyRows: ${enemyRows}, enemySpeed: ${enemySpeed}, enemyShootInterval: ${enemyShootInterval}`);
-    return { enemyRows, enemySpeed, enemyShootInterval };
+    console.log(`Setting difficulty: ${difficulty}, enemyRows: ${settings.enemyRows}, enemySpeed: ${settings.enemySpeed}, enemyShootInterval: ${settings.enemyShootInterval}`);
+    return settings;
 }
 
-function createEnemies(enemyRows) {
+function createEnemies(rows) {
     enemies = [];
     const enemyWidth = 40;
     const enemyHeight = 30;
     const cols = 10;
-    for (let row = 0; row < enemyRows; row++) {
+    for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
             enemies.push({
                 x: col * (enemyWidth + 10) + 50,
@@ -73,17 +65,20 @@ function createEnemies(enemyRows) {
             });
         }
     }
+    console.log(`Created ${enemies.length} enemies (${rows} rows)`);
 }
 
 function startGame(diff) {
     startScreen.style.display = 'none';
     gameContainer.style.display = 'block';
     initGame();
-    const { enemyRows, enemySpeed, enemyShootInterval } = setDifficulty(diff);
+    const settings = setDifficulty(diff);
+    enemyRows = settings.enemyRows;
+    enemySpeed = settings.enemySpeed;
+    enemyShootInterval = settings.enemyShootInterval;
     createEnemies(enemyRows);
     console.log(`Game started, difficulty: ${difficulty}, Player: ${JSON.stringify(player)}, Enemies: ${enemies.length}`);
     gameLoop();
-    setInterval(enemyShoot, enemyShootInterval);
 }
 
 document.getElementById('easyButton').addEventListener('click', () => startGame('easy'));
@@ -111,7 +106,6 @@ function shoot() {
 }
 
 function enemyShoot() {
-    if (gameState !== 'playing') return;
     const aliveEnemies = enemies.filter(e => e.alive);
     if (aliveEnemies.length === 0) return;
     const shooter = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
@@ -154,7 +148,6 @@ function update() {
     enemyBullets = enemyBullets.filter(b => b.y < canvas.height);
 
     // Ruch wrogów
-    const { enemySpeed } = setDifficulty(difficulty);
     let maxX = 0, minX = canvas.width, direction = 0;
     enemies.forEach(e => {
         if (e.alive) {
@@ -167,6 +160,13 @@ function update() {
     enemies.forEach(e => {
         if (e.alive) e.x += direction * enemySpeed;
     });
+
+    // Strzały wrogów
+    const currentTime = Date.now();
+    if (currentTime - lastEnemyShotTime > enemyShootInterval) {
+        enemyShoot();
+        lastEnemyShotTime = currentTime;
+    }
 
     // Power-Up
     if (powerUp) {
