@@ -1,0 +1,150 @@
+canvas {
+    border: 1px solid white;
+    background: black;
+}
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background: #111;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+#gameContainer {
+    position: relative;
+    width: 800px; /* Szerokość canvasu */
+    margin: 0 auto; /* Wyśrodkowanie gameContainer */
+}
+#canvasAndControls {
+    position: relative;
+    width: 800px; /* Szerokość canvasu */
+}
+#score {
+    position: absolute;
+    top: -30px;
+    left: 0;
+    font-size: 24px;
+}
+#controls {
+    position: absolute;
+    top: 0;
+    right: -250px; /* Zwiększone przesunięcie w prawo, aby nie najeżdżać na canvas */
+    background: #222;
+    padding: 15px;
+    border-radius: 5px;
+    max-width: 200px;
+    font-size: 16px;
+}
+#controls h3 {
+    margin: 0 0 10px;
+}
+#controls p {
+    margin: 5px 0;
+}
+#gameOverPopup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5); /* Mniej intensywna poświata */
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+#gameOverContent {
+    background: #222;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+#gameOverContent h2 {
+    margin: 0 0 20px;
+    font-size: 32px;
+}
+#gameOverContent p {
+    margin: 0 0 20px;
+    font-size: 24px;
+}
+#popupButtons {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+}
+#restartButton, #returnToMenuButton {
+    padding: 8px 16px;
+    font-size: 16px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+#restartButton:hover, #returnToMenuButton:hover {
+    background: #45a049;
+}
+#startScreen {
+    background: #222;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    z-index: 10;
+}
+#startScreen h2 {
+    margin: 0 0 20px;
+    font-size: 36px;
+}
+#startScreen h3 {
+    margin: 0 0 20px;
+    font-size: 24px;
+}
+#startScreen button {
+    padding: 10px 20px;
+    margin: 5px;
+    font-size: 18px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+#startScreen button:hover {
+    background: #45a049;
+}
+#powerUpMessage {
+    position: absolute;
+    top: 30px; /* Nad przeciwnikami */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px; /* Szerokość canvasu */
+    font-size: 18px;
+    color: yellow;
+    text-align: center;
+    opacity: 0; /* Domyślnie niewidoczny */
+    transition: opacity 0.5s ease-in; /* Ease-in dla pojawiania */
+}
+#powerUpMessage.power-up-active {
+    opacity: 1; /* Widoczny podczas animacji */
+    animation: pulseText 0.5s infinite; /* Pulsowanie tekstu */
+}
+@keyframes pulseText {
+    0% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.1); }
+    100% { transform: translateX(-50%) scale(1); }
+}
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+.player-pulse {
+    animation: pulse 0.5s infinite;
+}
