@@ -33,7 +33,7 @@ try {
 } catch (e) {
     console.error('WebGL initialization failed:', e);
     useWebGL = false;
-    canvas.style.opacity = '1'; // Fallback: pokazujemy #gameCanvas
+    canvas.style.display = 'block'; // Fallback: pokazujemy #gameCanvas
 }
 
 // Obiekt gracza
@@ -418,7 +418,10 @@ restartButton.addEventListener('click', restartGame);
 
 // Ruch i logika gry
 function update(deltaTime) {
-    if (!gameRunning) return;
+    if (!gameRunning) {
+        console.log('Update skipped, gameRunning:', gameRunning);
+        return;
+    }
 
     console.log('Updating, deltaTime:', deltaTime, 'gameRunning:', gameRunning, 'player: x=', player.x, 'y=', player.y, 'keys:', JSON.stringify(keys));
 
@@ -565,8 +568,13 @@ function update(deltaTime) {
 
 // Rysowanie
 function draw() {
+    console.log('Draw called, gameRunning:', gameRunning, 'useWebGL:', useWebGL);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    console.log('Drawing: player: x=', player.x, 'y=', player.y, 'enemies:', enemies.filter(e => e.alive).length);
+
+    // Testowe tło, aby potwierdzić rysowanie
+    ctx.fillStyle = 'blue';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    console.log('Filled background: blue');
 
     // Gracz z animacją
     ctx.save();
@@ -615,6 +623,7 @@ function draw() {
     // Aplikuj efekty CRT
     if (useWebGL && glfxCanvas && glfxTexture) {
         try {
+            console.log('Loading texture for WebGL');
             glfxTexture.load(canvas);
             glfxCanvas.draw(glfxTexture)
                 .bulgePinch(canvas.width / 2, canvas.height / 2, canvas.width * 0.75, 0.3)
@@ -646,7 +655,7 @@ function gameLoop(timestamp) {
         deltaTime = 0;
     }
 
-    console.log('Game loop running, timestamp:', timestamp, 'deltaTime:', deltaTime);
+    console.log('Game loop running, timestamp:', timestamp, 'deltaTime:', deltaTime, 'gameRunning:', gameRunning);
 
     update(deltaTime);
     draw();
