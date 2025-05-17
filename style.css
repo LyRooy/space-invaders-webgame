@@ -3,15 +3,20 @@ canvas {
     background: black;
 }
 #gameCanvas {
-    /* Niewidoczny, ale renderowany dla WebGL */
-    opacity: 0;
+    /* Domyślnie widoczny, ukryty po inicjalizacji WebGL */
     position: absolute;
     top: 0;
     left: 0;
+    z-index: 1;
 }
 #glCanvas {
     /* Poświata dla klimatu CRT */
     filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.3));
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    pointer-events: auto; /* Zapewnia obsługę inputów */
 }
 body {
     display: flex;
