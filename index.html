@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="startScreen">
+        <h2>Space Invaders</h2>
+        <div>
+            <label for="nicknameInput">Enter Nickname:</label>
+            <input type="text" id="nicknameInput" maxlength="20" placeholder="Anonymous">
+        </div>
+        <h3>Choose Difficulty:</h3>
+        <button id="easyButton">Easy</button>
+        <button id="mediumButton">Medium</button>
+        <button id="hardButton">Hard</button>
+        <button id="endlessButton">Endless</button>
+        <h3>High Scores:</h3>
+        <table id="highScores">
+            <tr>
+                <th>Rank</th>
+                <th>Nickname</th>
+                <th>Score</th>
+            </tr>
+        </table>
+    </div>
+    <div id="gameContainer" style="display: none;">
+        <div id="score">Score: 0</div>
+        <div id="canvasAndControls">
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+            <div id="controls">
+                <h3>Controls:</h3>
+                <p>← / → : Move Ship</p>
+                <p>Space: Shoot</p>
+                <p>Enter: Replay (after win or loss)</p>
+                <p>Esc: Menu (after win or loss)</p>
+            </div>
+            <div id="powerUpMessage"></div>
+        </div>
+    </div>
+    <div id="gameOverPopup">
+        <div id="gameOverContent">
+            <h2>Lost!</h2>
+            <p id="finalScore">Score: 0</p>
+            <div id="popupButtons">
+                <button id="restartButton">Replay</button>
+                <button id="returnToMenuButton">Menu</button>
+            </div>
+        </div>
+    </div>
+    <script defer src="scripts.js"></script>
+</body>
+</html>
