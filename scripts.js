@@ -191,11 +191,11 @@ function initGame() {
     powerUpTimer = 0;
     lastEnemyShotTime = 0;
     movedDown = false;
-    scoreDisplay.textContent = 'Score: ' + score;
+    scoreDisplay.textContent = 'Score: ' + score; // Aktualizuj wyświetlanie wyniku
     powerUpMessage.textContent = '';
     powerUpMessage.classList.remove('power-up-active');
     initEnemies();
-    console.log('Game initialized, player:', player, 'enemies:', enemies.length);
+    console.log(`Game initialized, score: ${score}, scoreDisplay: ${scoreDisplay.textContent}, enemies: ${enemies.length}`);
 }
 
 // Inicjalizacja wrogów
@@ -335,11 +335,12 @@ function restartGame() {
     gameOverPopup.style.display = 'none';
     score = 0; // Resetuj wynik
     difficultyLevel = 0; // Resetuj poziom trudności
+    scoreDisplay.textContent = 'Score: ' + score; // Aktualizuj wyświetlanie wyniku
     initGame();
     setDifficulty(difficulty);
     gameRunning = true;
     lastTime = 0;
-    console.log('Game restarted, score: 0, difficultyLevel: 0, difficulty:', difficulty, 'endless:', isEndlessMode);
+    console.log(`Game restarted, score: ${score}, scoreDisplay: ${scoreDisplay.textContent}, difficultyLevel: 0, difficulty: ${difficulty}, endless: ${isEndlessMode}`);
     requestAnimationFrame(gameLoop);
 }
 
