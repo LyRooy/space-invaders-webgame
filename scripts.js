@@ -116,19 +116,36 @@ function increaseDifficulty() {
 function saveHighScore() {
     if (!nickname) nickname = 'Anonymous';
     const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
-    // Usuń istniejący wpis dla tego samego nicka
-    const filteredScores = highScores.filter(entry => entry.nickname !== nickname);
-    // Dodaj nowy wpis
-    filteredScores.push({ 
-        nickname, 
-        score, 
-        timestamp: Date.now() 
-    });
-    // Sortuj i ogranicz do 10
-    filteredScores.sort((a, b) => b.score - a.score);
-    if (filteredScores.length > 10) filteredScores.length = 10;
-    localStorage.setItem('highScores', JSON.stringify(filteredScores));
-    console.log(`High score saved (overwritten for ${nickname}): score: ${score}`);
+    // Znajdź istniejący wpis dla nicka
+    const existingScore = highScores.find(entry => entry.nickname === nickname);
+    if (existingScore) {
+        // Nadpisz tylko jeśli nowy wynik jest wyższy
+        if (score > existingScore.score) {
+            const filteredScores = highScores.filter(entry => entry.nickname !== nickname);
+            filteredScores.push({ 
+                nickname, 
+                score, 
+                timestamp: Date.now() 
+            });
+            filteredScores.sort((a, b) => b.score - a.score);
+            if (filteredScores.length > 10) filteredScores.length = 10;
+            localStorage.setItem('highScores', JSON.stringify(filteredScores));
+            console.log(`High score saved (overwritten for ${nickname}): score: ${score}`);
+        } else {
+            console.log(`High score not saved (lower score for ${nickname}): current: ${existingScore.score}, new: ${score}`);
+        }
+    } else {
+        // Dodaj nowy wpis, jeśli nick nie istnieje
+        highScores.push({ 
+            nickname, 
+            score, 
+            timestamp: Date.now() 
+        });
+        highScores.sort((a, b) => b.score - a.score);
+        if (highScores.length > 10) highScores.length = 10;
+        localStorage.setItem('highScores', JSON.stringify(highScores));
+        console.log(`High score saved (new for ${nickname}): score: ${score}`);
+    }
     updateHighScoresTable();
 }
 
