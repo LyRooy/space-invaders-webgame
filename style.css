@@ -2,6 +2,20 @@ canvas {
     border: 1px solid white;
     background: black;
 }
+#gameCanvas {
+    /* Efekt CRT: zakrzywienie */
+    transform: perspective(1000px) rotateX(10deg);
+    transform-origin: center;
+    /* Poświata */
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.3));
+}
+#crtOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none; /* Nie blokuje interakcji z grą */
+    opacity: 0.3; /* Subtelny efekt */
+}
 body {
     display: flex;
     justify-content: center;
@@ -130,13 +144,12 @@ body {
 #startScreen table {
     margin: 20px auto;
     border-collapse: collapse;
-    width: 80%;
     width: 60%; /* Zmniejszona szerokość dla 3 kolumn */
 }
 #startScreen th, #startScreen td {
     padding: 8px;
     border: 1px solid #444;
-    text-align: center; /* Wyrównanie dla lepszego wyglądu */
+    text-align: center;
 }
 #startScreen th {
     background: #333;
