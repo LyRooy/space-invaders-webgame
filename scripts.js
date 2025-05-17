@@ -11,6 +11,9 @@ const powerUpMessage = document.getElementById('powerUpMessage');
 const easyButton = document.getElementById('easyButton');
 const mediumButton = document.getElementById('mediumButton');
 const hardButton = document.getElementById('hardButton');
+const endlessButton = document.getElementById('endlessButton');
+const nicknameInput = document.getElementById('nicknameInput');
+const highScoresTable = document.getElementById('highScores');
 
 // Obiekt gracza
 let player = {
@@ -56,6 +59,9 @@ let enemyShootInterval = 2500; // Milisekundy (ustawiane w setDifficulty)
 let gameRunning = false;
 let animationFrameId;
 let lastTime = 0;
+let isEndlessMode = false;
+let nickname = '';
+let movedDown = false; // Flaga dla przesunięcia wrogów
 
 // Poziom trudności
 let difficulty = 'medium';
@@ -96,6 +102,39 @@ function setDifficulty(diff) {
     console.log(`Difficulty: ${difficulty}, enemySpeed: ${enemySpeed}px/s, enemyShootInterval: ${enemyShootInterval}ms`);
 }
 
+// Tabela wyników
+function saveHighScore() {
+    if (!nickname) nickname = 'Anonymous';
+    const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+    highScores.push({ nickname, score, difficulty, timestamp: Date.now() });
+    highScores.sort((a, b) => b.score - a.score); // Sortuj malejąco po wyniku
+    if (highScores.length > 10) highScores.length = 10; // Maks. 10 wyników
+    localStorage.setItem('highScores', JSON.stringify(highScores));
+    updateHighScoresTable();
+}
+
+function updateHighScoresTable() {
+    const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+    highScoresTable.innerHTML = `
+        <tr>
+            <th>Rank</th>
+            <th>Nickname</th>
+            <th>Score</th>
+            <th>Difficulty</th>
+        </tr>
+    `;
+    highScores.forEach((entry, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${entry.nickname}</td>
+            <td>${entry.score}</td>
+            <td>${entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1)}</td>
+        `;
+        highScoresTable.appendChild(row);
+    });
+}
+
 // Inicjalizacja gry
 function initGame() {
     player = {
@@ -109,13 +148,14 @@ function initGame() {
     bullets = [];
     enemyBullets = [];
     powerUps = [];
-    score = 0;
+    if (!isEndlessMode) score = 0; // Nie resetuj wyniku w trybie Endless
     bulletPowerUp = false;
     bulletWidth = 5;
     bulletSpeed = 700;
     powerUpTimer = 0;
     lastEnemyShotTime = 0;
-    scoreDisplay.textContent = 'Score: 0';
+    movedDown = false;
+    scoreDisplay.textContent = 'Score: ' + score;
     powerUpMessage.textContent = '';
     powerUpMessage.classList.remove('power-up-active');
     initEnemies();
@@ -214,6 +254,7 @@ function showGameOver(isWin) {
     finalScoreDisplay.textContent = `Score: ${score}`;
     gameOverPopup.querySelector('h2').textContent = isWin ? 'Won!' : 'Lost!';
     gameOverPopup.style.display = 'flex';
+    saveHighScore();
 }
 
 // Powrót do menu wyboru poziomu trudności
@@ -223,27 +264,33 @@ function returnToMenu() {
     gameOverPopup.style.display = 'none';
     gameContainer.style.display = 'none';
     startScreen.style.display = 'block';
+    isEndlessMode = false;
+    nicknameInput.value = '';
     initGame();
+    updateHighScoresTable();
     console.log('Returned to difficulty selection menu');
 }
 
 returnToMenuButton.addEventListener('click', returnToMenu);
 
 // Rozpoczęcie gry z wybranym poziomem trudności
-function startGame(diff) {
+function startGame(diff, endless = false) {
+    nickname = nicknameInput.value.trim() || 'Anonymous';
+    isEndlessMode = endless;
     setDifficulty(diff);
     startScreen.style.display = 'none';
     gameContainer.style.display = 'flex';
     initGame();
     gameRunning = true;
-    lastTime = performance.now();
-    console.log('Game started, difficulty:', difficulty, 'Player:', player, 'Enemies:', enemies.length);
-    gameLoop(performance.now());
+    lastTime = 0;
+    console.log('Game started, difficulty:', difficulty, 'endless:', isEndlessMode, 'nickname:', nickname, 'Player:', player, 'Enemies:', enemies.length);
+    requestAnimationFrame(gameLoop);
 }
 
 easyButton.addEventListener('click', () => startGame('easy'));
 mediumButton.addEventListener('click', () => startGame('medium'));
 hardButton.addEventListener('click', () => startGame('hard'));
+endlessButton.addEventListener('click', () => startGame(difficulty, true));
 
 // Restart gry
 function restartGame() {
@@ -251,11 +298,11 @@ function restartGame() {
     cancelAnimationFrame(animationFrameId);
     gameOverPopup.style.display = 'none';
     initGame();
-    setDifficulty(difficulty); // Przywróć parametry trudności
+    setDifficulty(difficulty);
     gameRunning = true;
-    lastTime = performance.now();
-    console.log('Game restarted, difficulty:', difficulty);
-    gameLoop(performance.now());
+    lastTime = 0;
+    console.log('Game restarted, difficulty:', difficulty, 'endless:', isEndlessMode);
+    requestAnimationFrame(gameLoop);
 }
 
 restartButton.addEventListener('click', restartGame);
@@ -268,7 +315,7 @@ function update(deltaTime) {
 
     // Delta time w sekundach
     let dt = deltaTime / 1000;
-    if (dt < 0 || isNaN(dt)) dt = 0; // Zabezpieczenie przed niepoprawnym deltaTime
+    if (dt < 0 || isNaN(dt)) dt = 0;
 
     // Ruch gracza
     if (keys['ArrowLeft']) player.dx = -player.speed;
@@ -295,7 +342,7 @@ function update(deltaTime) {
 
         // Kolizja z graczem
         if (checkCollision(bullet, player)) {
-            showGameOver(false); // Przegrana
+            showGameOver(false);
         }
     });
 
@@ -307,13 +354,25 @@ function update(deltaTime) {
         if (enemy.x + enemy.width > canvas.width || enemy.x < 0) edge = true;
     });
 
-    if (edge) {
+    if (edge && !movedDown) {
         enemyDirection *= -1;
         enemies.forEach(enemy => {
             if (!enemy.alive) return;
-            enemy.y += 20; // Stałe przesunięcie w dół
+            enemy.y += 20;
         });
+        movedDown = true;
+        console.log('Enemies moved down');
+    } else if (!edge) {
+        movedDown = false;
     }
+
+    // Kolizje wrogów z graczem lub dolną krawędzią
+    enemies.forEach(enemy => {
+        if (!enemy.alive) return;
+        if (checkCollision(enemy, player) || enemy.y + enemy.height >= canvas.height) {
+            showGameOver(false);
+        }
+    });
 
     // Strzelanie wrogów
     const currentTime = performance.now();
@@ -359,24 +418,29 @@ function update(deltaTime) {
 
     // Ruch i kolizje power-upów
     powerUps.forEach((powerUp, index) => {
-        powerUp.y += 200 * dt; // 200 pikseli na sekundę
+        powerUp.y += 200 * dt;
         if (powerUp.y > canvas.height) powerUps.splice(index, 1);
 
         if (checkCollision(powerUp, player)) {
             powerUps.splice(index, 1);
             bulletPowerUp = true;
             bulletWidth = 15;
-            bulletSpeed = 1000; // 1000 pikseli na sekundę
-            powerUpTimer = 10; // 10 sekund
+            bulletSpeed = 1000;
+            powerUpTimer = 10;
         }
     });
 
     updatePowerUp(deltaTime);
 
-    // Sprawdzenie końca gry (wygrana)
+    // Sprawdzenie końca gry lub odrodzenie w trybie Endless
     let aliveEnemies = enemies.filter(enemy => enemy.alive).length;
     if (aliveEnemies === 0) {
-        showGameOver(true); // Wygrana
+        if (isEndlessMode) {
+            initEnemies();
+            console.log('Endless mode: Enemies respawned');
+        } else {
+            showGameOver(true);
+        }
     }
 }
 
@@ -388,7 +452,7 @@ function draw() {
     // Gracz z animacją
     ctx.save();
     if (bulletPowerUp) {
-        const scale = 1 + 0.2 * Math.sin(performance.now() / 100); // Pulsowanie
+        const scale = 1 + 0.2 * Math.sin(performance.now() / 100);
         ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
         ctx.scale(scale, scale);
         ctx.translate(-(player.x + player.width / 2), -(player.y + player.height / 2));
@@ -431,11 +495,10 @@ function gameLoop(timestamp) {
         return;
     }
 
-    if (!lastTime) lastTime = timestamp; // Inicjalizacja lastTime
+    if (!lastTime) lastTime = timestamp;
     let deltaTime = timestamp - lastTime;
     lastTime = timestamp;
 
-    // Zabezpieczenie przed niepoprawnym deltaTime
     if (deltaTime < 0 || isNaN(deltaTime)) {
         console.warn('Invalid deltaTime:', deltaTime, 'resetting to 0');
         deltaTime = 0;
@@ -448,3 +511,6 @@ function gameLoop(timestamp) {
 
     animationFrameId = requestAnimationFrame(gameLoop);
 }
+
+// Inicjalizacja tabeli wyników przy starcie
+updateHighScoresTable();
