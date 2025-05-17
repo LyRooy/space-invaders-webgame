@@ -1,6 +1,5 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const glCanvas = document.getElementById('glCanvas');
 let glfxCanvas, glfxTexture;
 const scoreDisplay = document.getElementById('score');
 const gameOverPopup = document.getElementById('gameOverPopup');
@@ -24,9 +23,13 @@ try {
     glfxCanvas.width = canvas.width;
     glfxCanvas.height = canvas.height;
     glfxCanvas.id = 'glCanvas';
-    glCanvas.parentNode.replaceChild(glfxCanvas, glCanvas);
+    glfxCanvas.style.position = 'absolute';
+    glfxCanvas.style.top = '0';
+    glfxCanvas.style.left = '0';
+    canvas.parentNode.appendChild(glfxCanvas);
     glfxTexture = glfxCanvas.texture(canvas);
-    console.log('WebGL initialized successfully');
+    canvas.style.display = 'none'; // Ukrywamy #gameCanvas po WebGL
+    console.log('WebGL initialized successfully, glfxCanvas added to DOM');
 } catch (e) {
     console.error('WebGL initialization failed:', e);
     useWebGL = false;
@@ -85,7 +88,7 @@ let difficultyLevel = 0; // Licznik odrodzeń w trybie Endless
 // Poziom trudności
 let difficulty = 'medium';
 
-// Marginesy dla zakrzywienia CRT (zmniejszone)
+// Marginesy dla zakrzywienia CRT
 const marginX = canvas.width * 0.05; // 5% = 40px
 const marginY = canvas.height * 0.05; // 5% = 30px
 
@@ -103,10 +106,12 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'Escape' && gameOverPopup.style.display === 'flex') {
         returnToMenu();
     }
+    console.log(`Key down: ${e.code}, keys:`, JSON.stringify(keys));
 });
 document.addEventListener('keyup', (e) => {
     keys[e.code] = false;
     if (e.code === 'Space') keys['SpaceDown'] = false;
+    console.log(`Key up: ${e.code}, keys:`, JSON.stringify(keys));
 });
 
 // Ustawianie parametrów trudności
@@ -339,6 +344,7 @@ function updatePowerUp(deltaTime) {
         powerUpMessage.textContent = '';
         powerUpMessage.classList.remove('power-up-active');
     }
+    console.log(`Power-up updated: bulletPowerUp=${bulletPowerUp}, powerUpTimer=${powerUpTimer}`);
 }
 
 // Pokazanie popupu przegranej lub wygranej
@@ -414,7 +420,7 @@ restartButton.addEventListener('click', restartGame);
 function update(deltaTime) {
     if (!gameRunning) return;
 
-    console.log('Updating, deltaTime:', deltaTime, 'gameRunning:', gameRunning, 'player: x=', player.x, 'y=', player.y);
+    console.log('Updating, deltaTime:', deltaTime, 'gameRunning:', gameRunning, 'player: x=', player.x, 'y=', player.y, 'keys:', JSON.stringify(keys));
 
     // Delta time w sekundach
     let dt = deltaTime / 1000;
@@ -428,7 +434,7 @@ function update(deltaTime) {
     player.x += player.dx * dt;
     if (player.x < marginX) player.x = marginX;
     if (player.x + player.width > canvas.width - marginX) player.x = canvas.width - marginX - player.width;
-    console.log(`Player updated: x=${player.x}, y=${player.y}, dx=${player.dx}`);
+    console.log(`Player updated: x=${player.x}, y=${player.y}, dx=${player.dx}, dt=${dt}`);
 
     // Ruch pocisków gracza
     bullets.forEach((bullet, index) => {
@@ -612,14 +618,14 @@ function draw() {
             glfxTexture.load(canvas);
             glfxCanvas.draw(glfxTexture)
                 .bulgePinch(canvas.width / 2, canvas.height / 2, canvas.width * 0.75, 0.3)
-                .noise(0.1)
-                .vignette(0.5, 0.5)
                 .update();
-            console.log('Applied CRT effects: bulgePinch, noise, vignette');
+            console.log('Applied CRT effect: bulgePinch');
         } catch (e) {
             console.error('Error applying CRT effects:', e);
             useWebGL = false;
+            canvas.style.display = 'block';
             canvas.style.opacity = '1';
+            glfxCanvas.style.display = 'none';
         }
     }
 }
