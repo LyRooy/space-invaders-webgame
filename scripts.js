@@ -116,10 +116,15 @@ function increaseDifficulty() {
 function saveHighScore() {
     if (!nickname) nickname = 'Anonymous';
     const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
-    highScores.push({ nickname, score, difficulty: isEndlessMode ? `Endless (${difficulty})` : difficulty, timestamp: Date.now() });
+    highScores.push({ 
+        nickname, 
+        score, 
+        timestamp: Date.now() 
+    });
     highScores.sort((a, b) => b.score - a.score);
     if (highScores.length > 10) highScores.length = 10;
     localStorage.setItem('highScores', JSON.stringify(highScores));
+    console.log(`High score saved: nickname: ${nickname}, score: ${score}`);
     updateHighScoresTable();
 }
 
@@ -130,7 +135,6 @@ function updateHighScoresTable() {
             <th>Rank</th>
             <th>Nickname</th>
             <th>Score</th>
-            <th>Difficulty</th>
         </tr>
     `;
     highScores.forEach((entry, index) => {
@@ -139,10 +143,10 @@ function updateHighScoresTable() {
             <td>${index + 1}</td>
             <td>${entry.nickname}</td>
             <td>${entry.score}</td>
-            <td>${entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1)}</td>
         `;
         highScoresTable.appendChild(row);
     });
+    console.log('High scores table updated:', highScores);
 }
 
 // Inicjalizacja gry
@@ -207,8 +211,8 @@ function shootBullet() {
 
 // Strzał wroga (losowy kierunek)
 function enemyShoot(enemy) {
-    const randomAngle = (Math.random() - 0.5) * Math.PI / 4;
-    const speed = 400;
+    const randomAngle = (Math.random() - 0.5) * Math.PI / 4; // Losowy kąt ±22.5 stopni
+    const speed = 400; // 400 pikseli na sekundę
     enemyBullets.push({
         x: enemy.x + enemy.width / 2 - 2.5,
         y: enemy.y + enemy.height,
@@ -243,7 +247,7 @@ function checkCollision(rect1, rect2) {
 // Aktualizacja power-upu
 function updatePowerUp(deltaTime) {
     if (bulletPowerUp) {
-        powerUpTimer -= deltaTime / 1000;
+        powerUpTimer -= deltaTime / 1000; // Odejmuj czas w sekundach
         powerUpMessage.textContent = 'Power-Up Active!';
         powerUpMessage.classList.add('power-up-active');
         powerUpMessage.style.color = 'yellow';
@@ -326,6 +330,7 @@ function update(deltaTime) {
 
     console.log('Updating, deltaTime:', deltaTime, 'gameRunning:', gameRunning);
 
+    // Delta time w sekundach
     let dt = deltaTime / 1000;
     if (dt < 0 || isNaN(dt)) dt = 0;
 
@@ -352,6 +357,7 @@ function update(deltaTime) {
             enemyBullets.splice(index, 1);
         }
 
+        // Kolizja z graczem
         if (checkCollision(bullet, player)) {
             showGameOver(false);
         }
@@ -414,6 +420,7 @@ function update(deltaTime) {
                 score += 10;
                 scoreDisplay.textContent = 'Score: ' + score;
 
+                // Losowy power-up
                 if (Math.random() < 0.2) {
                     powerUps.push({
                         x: enemy.x,
@@ -428,7 +435,7 @@ function update(deltaTime) {
 
     // Ruch i kolizje power-upów
     powerUps.forEach((powerUp, index) => {
-        powerUp.y += 200 * dt;
+        powerUp.y += 200 * dt; // 200 pikseli na sekundę
         if (powerUp.y > canvas.height) powerUps.splice(index, 1);
 
         if (checkCollision(powerUp, player)) {
@@ -436,7 +443,7 @@ function update(deltaTime) {
             bulletPowerUp = true;
             bulletWidth = 15;
             bulletSpeed = 1000;
-            powerUpTimer = 10;
+            powerUpTimer = 10; // 10 sekund
         }
     });
 
@@ -446,6 +453,7 @@ function update(deltaTime) {
     let aliveEnemies = enemies.filter(enemy => enemy.alive).length;
     if (aliveEnemies === 0) {
         if (isEndlessMode) {
+            console.log(`Wave ${difficultyLevel + 1} cleared, preparing next wave`);
             increaseDifficulty();
             initEnemies();
             console.log('Endless mode: Enemies respawned');
@@ -460,9 +468,10 @@ function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     console.log('Drawing: player:', player, 'enemies:', enemies.filter(e => e.alive).length);
 
+    // Gracz z animacją
     ctx.save();
     if (bulletPowerUp) {
-        const scale = 1 + 0.2 * Math.sin(performance.now() / 100);
+        const scale = 1 + 0.2 * Math.sin(performance.now() / 100); // Pulsowanie
         ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
         ctx.scale(scale, scale);
         ctx.translate(-(player.x + player.width / 2), -(player.y + player.height / 2));
@@ -471,11 +480,13 @@ function draw() {
     ctx.fillRect(player.x, player.y, player.width, player.height);
     ctx.restore();
 
+    // Pociski gracza
     ctx.fillStyle = bulletPowerUp ? 'yellow' : 'white';
     bullets.forEach(bullet => {
         ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
     });
 
+    // Wrogowie
     ctx.fillStyle = 'red';
     enemies.forEach(enemy => {
         if (enemy.alive) {
@@ -483,11 +494,13 @@ function draw() {
         }
     });
 
+    // Pociski wrogów
     ctx.fillStyle = 'orange';
     enemyBullets.forEach(bullet => {
         ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
     });
 
+    // Power-upy
     ctx.fillStyle = 'green';
     powerUps.forEach(powerUp => {
         ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
