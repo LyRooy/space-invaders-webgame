@@ -18,13 +18,13 @@ let player = {
     y: canvas.height - 50,
     width: 50,
     height: 30,
-    speed: 5,
+    speed: 300, // Piksele na sekundę
     dx: 0
 };
 
 // Pociski gracza
 let bullets = [];
-let bulletSpeed = 7;
+let bulletSpeed = 700; // Piksele na sekundę
 let bulletWidth = 5;
 let bulletHeight = 10;
 let bulletPowerUp = false;
@@ -36,7 +36,7 @@ let enemyRows = 5;
 let enemyCols = 10;
 let enemyWidth = 40;
 let enemyHeight = 30;
-let enemySpeed = 1;
+let enemySpeed = 100; // Piksele na sekundę (ustawiane w setDifficulty)
 let enemyDirection = 1;
 
 // Pociski wrogów
@@ -49,12 +49,13 @@ let powerUps = [];
 let score = 0;
 
 // Timer strzałów wrogów
-let enemyShootTimer = 0;
-let enemyShootInterval = 120; // Domyślnie 2 sekundy przy 60 FPS
+let lastEnemyShotTime = 0;
+let enemyShootInterval = 2500; // Milisekundy (ustawiane w setDifficulty)
 
 // Stan gry
 let gameRunning = false;
 let animationFrameId;
+let lastTime = 0;
 
 // Poziom trudności
 let difficulty = 'medium';
@@ -83,16 +84,42 @@ document.addEventListener('keyup', (e) => {
 function setDifficulty(diff) {
     difficulty = diff;
     if (difficulty === 'easy') {
-        enemyShootInterval = 240; // 4 sekundy
-        enemySpeed = 0.5;
+        enemyShootInterval = 4000; // 4 sekundy
+        enemySpeed = 50; // 50 pikseli na sekundę
     } else if (difficulty === 'medium') {
-        enemyShootInterval = 150; // 2.5 sekundy
-        enemySpeed = 1;
+        enemyShootInterval = 2500; // 2.5 sekundy
+        enemySpeed = 100; // 100 pikseli na sekundę
     } else if (difficulty === 'hard') {
-        enemyShootInterval = 90; // 1.5 sekundy
-        enemySpeed = 1.5;
+        enemyShootInterval = 1500; // 1.5 sekundy
+        enemySpeed = 150; // 150 pikseli na sekundę
     }
-    console.log(`Difficulty: ${difficulty}, enemySpeed: ${enemySpeed}, enemyShootInterval: ${enemyShootInterval}`);
+    console.log(`Difficulty: ${difficulty}, enemySpeed: ${enemySpeed}px/s, enemyShootInterval: ${enemyShootInterval}ms`);
+}
+
+// Inicjalizacja gry
+function initGame() {
+    player = {
+        x: canvas.width / 2 - 25,
+        y: canvas.height - 50,
+        width: 50,
+        height: 30,
+        speed: 300,
+        dx: 0
+    };
+    bullets = [];
+    enemyBullets = [];
+    powerUps = [];
+    score = 0;
+    bulletPowerUp = false;
+    bulletWidth = 5;
+    bulletSpeed = 700;
+    powerUpTimer = 0;
+    lastEnemyShotTime = 0;
+    scoreDisplay.textContent = 'Score: 0';
+    powerUpMessage.textContent = '';
+    powerUpMessage.classList.remove('power-up-active');
+    initEnemies();
+    console.log('Game initialized, player:', player, 'enemies:', enemies.length);
 }
 
 // Inicjalizacja wrogów
@@ -127,8 +154,8 @@ function shootBullet() {
 
 // Strzał wroga (losowy kierunek)
 function enemyShoot(enemy) {
-    const randomAngle = (Math.random() - 0.5) * Math.PI / 4; // Losowy kąt w zakresie ±22.5 stopni
-    const speed = 4;
+    const randomAngle = (Math.random() - 0.5) * Math.PI / 4; // Losowy kąt ±22.5 stopni
+    const speed = 400; // 400 pikseli na sekundę
     enemyBullets.push({
         x: enemy.x + enemy.width / 2 - 2.5,
         y: enemy.y + enemy.height,
@@ -161,16 +188,16 @@ function checkCollision(rect1, rect2) {
 }
 
 // Aktualizacja power-upu
-function updatePowerUp() {
+function updatePowerUp(deltaTime) {
     if (bulletPowerUp) {
-        powerUpTimer--;
+        powerUpTimer -= deltaTime / 1000; // Odejmuj czas w sekundach
         powerUpMessage.textContent = 'Power-Up Active!';
         powerUpMessage.classList.add('power-up-active');
         powerUpMessage.style.color = 'yellow';
         if (powerUpTimer <= 0) {
             bulletPowerUp = false;
             bulletWidth = 5;
-            bulletSpeed = 7;
+            bulletSpeed = 700;
             powerUpMessage.textContent = '';
             powerUpMessage.classList.remove('power-up-active');
         }
@@ -191,25 +218,12 @@ function showGameOver(isWin) {
 
 // Powrót do menu wyboru poziomu trudności
 function returnToMenu() {
+    gameRunning = false;
+    cancelAnimationFrame(animationFrameId);
     gameOverPopup.style.display = 'none';
     gameContainer.style.display = 'none';
     startScreen.style.display = 'block';
-    score = 0;
-    scoreDisplay.textContent = 'Score: 0';
-    player.x = canvas.width / 2 - 25;
-    bullets = [];
-    enemyBullets = [];
-    powerUps = [];
-    bulletPowerUp = false;
-    bulletWidth = 5;
-    bulletSpeed = 7;
-    powerUpTimer = 0;
-    enemyShootTimer = 0;
-    powerUpMessage.textContent = '';
-    powerUpMessage.classList.remove('power-up-active');
-    enemies = [];
-    gameRunning = false;
-    cancelAnimationFrame(animationFrameId);
+    initGame();
     console.log('Returned to difficulty selection menu');
 }
 
@@ -220,10 +234,11 @@ function startGame(diff) {
     setDifficulty(diff);
     startScreen.style.display = 'none';
     gameContainer.style.display = 'flex';
+    initGame();
     gameRunning = true;
-    initEnemies();
+    lastTime = performance.now();
     console.log('Game started, difficulty:', difficulty, 'Player:', player, 'Enemies:', enemies.length);
-    gameLoop();
+    gameLoop(performance.now());
 }
 
 easyButton.addEventListener('click', () => startGame('easy'));
@@ -232,52 +247,48 @@ hardButton.addEventListener('click', () => startGame('hard'));
 
 // Restart gry
 function restartGame() {
+    gameRunning = false;
+    cancelAnimationFrame(animationFrameId);
     gameOverPopup.style.display = 'none';
-    score = 0;
-    scoreDisplay.textContent = 'Score: 0';
-    player.x = canvas.width / 2 - 25;
-    bullets = [];
-    enemyBullets = [];
-    powerUps = [];
-    bulletPowerUp = false;
-    bulletWidth = 5;
-    bulletSpeed = 7;
-    powerUpTimer = 0;
-    enemyShootTimer = 0;
-    powerUpMessage.textContent = '';
-    powerUpMessage.classList.remove('power-up-active');
+    initGame();
     setDifficulty(difficulty); // Przywróć parametry trudności
     gameRunning = true;
-    initEnemies();
+    lastTime = performance.now();
     console.log('Game restarted, difficulty:', difficulty);
-    gameLoop();
+    gameLoop(performance.now());
 }
 
 restartButton.addEventListener('click', restartGame);
 
 // Ruch i logika gry
-function update() {
+function update(deltaTime) {
     if (!gameRunning) return;
+
+    console.log('Updating, deltaTime:', deltaTime, 'gameRunning:', gameRunning);
+
+    // Delta time w sekundach
+    let dt = deltaTime / 1000;
+    if (dt < 0 || isNaN(dt)) dt = 0; // Zabezpieczenie przed niepoprawnym deltaTime
 
     // Ruch gracza
     if (keys['ArrowLeft']) player.dx = -player.speed;
     else if (keys['ArrowRight']) player.dx = player.speed;
     else player.dx = 0;
 
-    player.x += player.dx;
+    player.x += player.dx * dt;
     if (player.x < 0) player.x = 0;
     if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
     // Ruch pocisków gracza
     bullets.forEach((bullet, index) => {
-        bullet.y -= bullet.speed;
+        bullet.y -= bullet.speed * dt;
         if (bullet.y < 0) bullets.splice(index, 1);
     });
 
     // Ruch pocisków wrogów
     enemyBullets.forEach((bullet, index) => {
-        bullet.x += bullet.speedX;
-        bullet.y += bullet.speedY;
+        bullet.x += bullet.speedX * dt;
+        bullet.y += bullet.speedY * dt;
         if (bullet.y > canvas.height || bullet.x < 0 || bullet.x > canvas.width) {
             enemyBullets.splice(index, 1);
         }
@@ -292,7 +303,7 @@ function update() {
     let edge = false;
     enemies.forEach(enemy => {
         if (!enemy.alive) return;
-        enemy.x += enemySpeed * enemyDirection;
+        enemy.x += enemySpeed * enemyDirection * dt;
         if (enemy.x + enemy.width > canvas.width || enemy.x < 0) edge = true;
     });
 
@@ -300,13 +311,13 @@ function update() {
         enemyDirection *= -1;
         enemies.forEach(enemy => {
             if (!enemy.alive) return;
-            enemy.y += 20;
+            enemy.y += 20; // Stałe przesunięcie w dół
         });
     }
 
     // Strzelanie wrogów
-    enemyShootTimer++;
-    if (enemyShootTimer >= enemyShootInterval) {
+    const currentTime = performance.now();
+    if (currentTime - lastEnemyShotTime >= enemyShootInterval) {
         let aliveCols = [];
         for (let col = 0; col < enemyCols; col++) {
             if (getLowestEnemyInColumn(col)) {
@@ -320,7 +331,7 @@ function update() {
                 enemyShoot(shooter);
             }
         }
-        enemyShootTimer = 0;
+        lastEnemyShotTime = currentTime;
     }
 
     // Kolizje pocisków z wrogami
@@ -348,19 +359,19 @@ function update() {
 
     // Ruch i kolizje power-upów
     powerUps.forEach((powerUp, index) => {
-        powerUp.y += 2;
+        powerUp.y += 200 * dt; // 200 pikseli na sekundę
         if (powerUp.y > canvas.height) powerUps.splice(index, 1);
 
         if (checkCollision(powerUp, player)) {
             powerUps.splice(index, 1);
             bulletPowerUp = true;
             bulletWidth = 15;
-            bulletSpeed = 10;
-            powerUpTimer = 600; // 10 sekund przy 60 FPS
+            bulletSpeed = 1000; // 1000 pikseli na sekundę
+            powerUpTimer = 10; // 10 sekund
         }
     });
 
-    updatePowerUp();
+    updatePowerUp(deltaTime);
 
     // Sprawdzenie końca gry (wygrana)
     let aliveEnemies = enemies.filter(enemy => enemy.alive).length;
@@ -372,12 +383,12 @@ function update() {
 // Rysowanie
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    console.log('Drawing: player:', player, 'enemies:', enemies.length);
+    console.log('Drawing: player:', player, 'enemies:', enemies.filter(e => e.alive).length);
 
     // Gracz z animacją
     ctx.save();
     if (bulletPowerUp) {
-        const scale = 1 + 0.2 * Math.sin(Date.now() / 100); // Pulsowanie
+        const scale = 1 + 0.2 * Math.sin(performance.now() / 100); // Pulsowanie
         ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
         ctx.scale(scale, scale);
         ctx.translate(-(player.x + player.width / 2), -(player.y + player.height / 2));
@@ -414,10 +425,25 @@ function draw() {
 }
 
 // Główna pętla gry
-function gameLoop() {
-    if (!gameRunning) return;
+function gameLoop(timestamp) {
+    if (!gameRunning) {
+        console.log('Game loop stopped, gameRunning:', gameRunning);
+        return;
+    }
 
-    update();
+    if (!lastTime) lastTime = timestamp; // Inicjalizacja lastTime
+    let deltaTime = timestamp - lastTime;
+    lastTime = timestamp;
+
+    // Zabezpieczenie przed niepoprawnym deltaTime
+    if (deltaTime < 0 || isNaN(deltaTime)) {
+        console.warn('Invalid deltaTime:', deltaTime, 'resetting to 0');
+        deltaTime = 0;
+    }
+
+    console.log('Game loop running, timestamp:', timestamp, 'deltaTime:', deltaTime);
+
+    update(deltaTime);
     draw();
 
     animationFrameId = requestAnimationFrame(gameLoop);
