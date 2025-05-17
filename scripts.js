@@ -90,7 +90,7 @@ document.addEventListener('keyup', (e) => {
 // Ustawianie parametrów trudności
 function setDifficulty(diff) {
     difficulty = diff;
-    difficultyLevel = 0; // Resetuj poziom trudności w trybie normalnym
+    difficultyLevel = 0; // Resetuj poziom trudności
     if (difficulty === 'easy') {
         enemyShootInterval = 4000; // 4 sekundy
         enemySpeed = 50; // 50 pikseli na sekundę
@@ -116,15 +116,19 @@ function increaseDifficulty() {
 function saveHighScore() {
     if (!nickname) nickname = 'Anonymous';
     const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
-    highScores.push({ 
+    // Usuń istniejący wpis dla tego samego nicka
+    const filteredScores = highScores.filter(entry => entry.nickname !== nickname);
+    // Dodaj nowy wpis
+    filteredScores.push({ 
         nickname, 
         score, 
         timestamp: Date.now() 
     });
-    highScores.sort((a, b) => b.score - a.score);
-    if (highScores.length > 10) highScores.length = 10;
-    localStorage.setItem('highScores', JSON.stringify(highScores));
-    console.log(`High score saved: nickname: ${nickname}, score: ${score}`);
+    // Sortuj i ogranicz do 10
+    filteredScores.sort((a, b) => b.score - a.score);
+    if (filteredScores.length > 10) filteredScores.length = 10;
+    localStorage.setItem('highScores', JSON.stringify(filteredScores));
+    console.log(`High score saved (overwritten for ${nickname}): score: ${score}`);
     updateHighScoresTable();
 }
 
@@ -162,10 +166,8 @@ function initGame() {
     bullets = [];
     enemyBullets = [];
     powerUps = [];
-    if (!isEndlessMode) {
-        score = 0;
-        difficultyLevel = 0;
-    }
+    score = 0; // Zawsze resetuj wynik
+    difficultyLevel = 0; // Zawsze resetuj poziom trudności
     bulletPowerUp = false;
     bulletWidth = 5;
     bulletSpeed = 700;
@@ -314,11 +316,13 @@ function restartGame() {
     gameRunning = false;
     cancelAnimationFrame(animationFrameId);
     gameOverPopup.style.display = 'none';
+    score = 0; // Resetuj wynik
+    difficultyLevel = 0; // Resetuj poziom trudności
     initGame();
     setDifficulty(difficulty);
     gameRunning = true;
     lastTime = 0;
-    console.log('Game restarted, difficulty:', difficulty, 'endless:', isEndlessMode);
+    console.log('Game restarted, score: 0, difficultyLevel: 0, difficulty:', difficulty, 'endless:', isEndlessMode);
     requestAnimationFrame(gameLoop);
 }
 
