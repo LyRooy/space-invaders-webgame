@@ -203,15 +203,17 @@ function initEnemies() {
     enemies = [];
     for (let row = 0; row < enemyRows; row++) {
         for (let col = 0; col < enemyCols; col++) {
+            const enemyY = row * (enemyHeight + 10) + 50;
             enemies.push({
                 x: col * (enemyWidth + 10) + 50,
-                y: row * (enemyHeight + 10) + 50,
+                y: enemyY,
                 width: enemyWidth,
                 height: enemyHeight,
                 alive: true,
                 col: col,
                 row: row
             });
+            console.log(`Enemy initialized: row=${row}, col=${col}, x=${col * (enemyWidth + 10) + 50}, y=${enemyY}`);
         }
     }
     console.log('Enemies initialized:', enemies.length);
@@ -519,7 +521,8 @@ function draw() {
     ctx.fillStyle = 'red';
     enemies.forEach(enemy => {
         if (enemy.alive) {
-            ctx.fillRect(enemy.x, player.y, enemy.width, enemy.height);
+            ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+            console.log(`Drawing enemy: x=${enemy.x}, y=${enemy.y}`);
         }
     });
 
