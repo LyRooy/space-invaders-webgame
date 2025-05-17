@@ -173,9 +173,15 @@ body {
 .player-pulse {
     animation: pulse 0.5s infinite;
 }
-#endlessButton {
-    background: #FFD700; /* Złoty */
+#startScreen #easyButton, #startScreen #mediumButton, #startScreen #hardButton {
+    background: #4CAF50 !important;
 }
-#endlessButton:hover {
-    background: #FFEC8B; /* Jaśniejszy złoty */
+#startScreen #easyButton:hover, #startScreen #mediumButton:hover, #startScreen #hardButton:hover {
+    background: #45a049 !important;
+}
+#startScreen #endlessButton {
+    background: #FFD700 !important; /* Złoty */
+}
+#startScreen #endlessButton:hover {
+    background: #FFEC8B !important; /* Jaśniejszy złoty */
 }
