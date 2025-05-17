@@ -115,46 +115,74 @@ function increaseDifficulty() {
 // Tabela wyników
 function saveHighScore() {
     if (!nickname) nickname = 'Anonymous';
-    const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
-    // Znajdź istniejący wpis dla nicka
+    let highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+    
+    // Dodaj nowy wynik
     const existingScore = highScores.find(entry => entry.nickname === nickname);
     if (existingScore) {
         // Nadpisz tylko jeśli nowy wynik jest wyższy
         if (score > existingScore.score) {
-            const filteredScores = highScores.filter(entry => entry.nickname !== nickname);
-            filteredScores.push({ 
+            highScores = highScores.filter(entry => entry.nickname !== nickname);
+            highScores.push({ 
                 nickname, 
                 score, 
                 timestamp: Date.now() 
             });
-            filteredScores.sort((a, b) => b.score - a.score);
-            if (filteredScores.length > 10) filteredScores.length = 10;
-            localStorage.setItem('highScores', JSON.stringify(filteredScores));
-            console.log(`High score saved (overwritten for ${nickname}): score: ${score}, mode: Endless`);
         } else {
             console.log(`High score not saved (lower score for ${nickname}): current: ${existingScore.score}, new: ${score}, mode: Endless`);
+            return;
         }
     } else {
-        // Dodaj nowy wpis, jeśli nick nie istnieje
         highScores.push({ 
             nickname, 
             score, 
             timestamp: Date.now() 
         });
-        highScores.sort((a, b) => b.score - a.score);
-        if (highScores.length > 10) highScores.length = 10;
-        localStorage.setItem('highScores', JSON.stringify(highScores));
-        console.log(`High score saved (new for ${nickname}): score: ${score}, mode: Endless`);
     }
-    updateHighScoresTable();
-}
 
-function updateHighScoresTable() {
-    const highScores = JSON.parse(localStorage.getItem('highScores')) || [
+    // Dodaj domyślne wyniki, jeśli za mało
+    const defaultScores = [
         { nickname: "ArcadeMaster", score: 500, timestamp: Date.now() },
         { nickname: "SpaceAce", score: 300, timestamp: Date.now() },
         { nickname: "InvaderKiller", score: 100, timestamp: Date.now() }
     ];
+    if (highScores.length < 3) {
+        defaultScores.forEach(defaultScore => {
+            if (!highScores.some(entry => entry.nickname === defaultScore.nickname)) {
+                highScores.push(defaultScore);
+            }
+        });
+    }
+
+    // Sortuj i ogranicz do 10
+    highScores.sort((a, b) => b.score - a.score);
+    if (highScores.length > 10) highScores.length = 10;
+    
+    localStorage.setItem('highScores', JSON.stringify(highScores));
+    console.log(`High score saved for ${nickname}: score: ${score}, mode: Endless, total scores: ${highScores.length}`);
+    updateHighScoresTable();
+}
+
+function updateHighScoresTable() {
+    let highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+    
+    // Upewnij się, że są domyślne wyniki
+    const defaultScores = [
+        { nickname: "ArcadeMaster", score: 500, timestamp: Date.now() },
+        { nickname: "SpaceAce", score: 300, timestamp: Date.now() },
+        { nickname: "InvaderKiller", score: 100, timestamp: Date.now() }
+    ];
+    if (highScores.length < 3) {
+        defaultScores.forEach(defaultScore => {
+            if (!highScores.some(entry => entry.nickname === defaultScore.nickname)) {
+                highScores.push(defaultScore);
+            }
+        });
+        highScores.sort((a, b) => b.score - a.score);
+        if (highScores.length > 10) highScores.length = 10;
+        localStorage.setItem('highScores', JSON.stringify(highScores));
+    }
+
     highScoresTable.innerHTML = `
         <tr>
             <th>Rank</th>
