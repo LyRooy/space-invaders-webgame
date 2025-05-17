@@ -15,11 +15,17 @@ body {
 #gameContainer {
     position: relative;
     width: 800px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     margin: 0 auto;
 }
 #canvasAndControls {
     position: relative;
     width: 800px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 #score {
     position: absolute;
@@ -130,13 +136,12 @@ body {
 #startScreen table {
     margin: 20px auto;
     border-collapse: collapse;
-    width: 80%;
-    width: 60%; /* Zmniejszona szerokość dla 3 kolumn */
+    width: 60%;
 }
 #startScreen th, #startScreen td {
     padding: 8px;
     border: 1px solid #444;
-    text-align: center; /* Wyrównanie dla lepszego wyglądu */
+    text-align: center;
 }
 #startScreen th {
     background: #333;
@@ -180,8 +185,8 @@ body {
     background: #45a049 !important;
 }
 #startScreen #endlessButton {
-    background: #FFD700 !important; /* Złoty */
+    background: #FFD700 !important;
 }
 #startScreen #endlessButton:hover {
-    background: #FFEC8B !important; /* Jaśniejszy złoty */
+    background: #FFEC8B !important;
 }
