@@ -81,10 +81,12 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'Escape' && gameOverPopup.style.display === 'flex') {
         returnToMenu();
     }
+    console.log(`Key down: ${e.code}, keys:`, JSON.stringify(keys));
 });
 document.addEventListener('keyup', (e) => {
     keys[e.code] = false;
     if (e.code === 'Space') keys['SpaceDown'] = false;
+    console.log(`Key up: ${e.code}, keys:`, JSON.stringify(keys));
 });
 
 // Ustawianie parametrów trudności
@@ -115,42 +117,60 @@ function increaseDifficulty() {
 // Tabela wyników
 function saveHighScore() {
     if (!nickname) nickname = 'Anonymous';
-    const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
-    // Znajdź istniejący wpis dla nicka
+    let highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+    
+    // Dodaj nowy wynik
     const existingScore = highScores.find(entry => entry.nickname === nickname);
     if (existingScore) {
         // Nadpisz tylko jeśli nowy wynik jest wyższy
         if (score > existingScore.score) {
-            const filteredScores = highScores.filter(entry => entry.nickname !== nickname);
-            filteredScores.push({ 
+            highScores = highScores.filter(entry => entry.nickname !== nickname);
+            highScores.push({ 
                 nickname, 
                 score, 
                 timestamp: Date.now() 
             });
-            filteredScores.sort((a, b) => b.score - a.score);
-            if (filteredScores.length > 10) filteredScores.length = 10;
-            localStorage.setItem('highScores', JSON.stringify(filteredScores));
-            console.log(`High score saved (overwritten for ${nickname}): score: ${score}, mode: Endless`);
         } else {
             console.log(`High score not saved (lower score for ${nickname}): current: ${existingScore.score}, new: ${score}, mode: Endless`);
+            return;
         }
     } else {
-        // Dodaj nowy wpis, jeśli nick nie istnieje
         highScores.push({ 
             nickname, 
             score, 
             timestamp: Date.now() 
         });
-        highScores.sort((a, b) => b.score - a.score);
-        if (highScores.length > 10) highScores.length = 10;
-        localStorage.setItem('highScores', JSON.stringify(highScores));
-        console.log(`High score saved (new for ${nickname}): score: ${score}, mode: Endless`);
     }
+
+    // Sortuj i ogranicz do 10
+    highScores.sort((a, b) => b.score - a.score);
+    if (highScores.length > 10) highScores.length = 10;
+    
+    localStorage.setItem('highScores', JSON.stringify(highScores));
+    console.log(`High score saved for ${nickname}: score: ${score}, mode: Endless, total scores: ${highScores.length}`);
     updateHighScoresTable();
 }
 
 function updateHighScoresTable() {
-    const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+    let highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+    
+    // Dodaj domyślne wyniki, jeśli za mało
+    const defaultScores = [
+        { nickname: "ArcadeMaster", score: 500, timestamp: Date.now() },
+        { nickname: "SpaceAce", score: 300, timestamp: Date.now() },
+        { nickname: "InvaderKiller", score: 100, timestamp: Date.now() }
+    ];
+    if (highScores.length < 3) {
+        defaultScores.forEach(defaultScore => {
+            if (!highScores.some(entry => entry.nickname === defaultScore.nickname)) {
+                highScores.push(defaultScore);
+            }
+        });
+        highScores.sort((a, b) => b.score - a.score);
+        if (highScores.length > 10) highScores.length = 10;
+        localStorage.setItem('highScores', JSON.stringify(highScores));
+    }
+
     highScoresTable.innerHTML = `
         <tr>
             <th>Rank</th>
@@ -195,7 +215,7 @@ function initGame() {
     powerUpMessage.textContent = '';
     powerUpMessage.classList.remove('power-up-active');
     initEnemies();
-    console.log(`Game initialized, score: ${score}, scoreDisplay: ${scoreDisplay.textContent}, enemies: ${enemies.length}`);
+    console.log(`Game initialized, score: ${score}, scoreDisplay: ${scoreDisplay.textContent}, enemies: ${enemies.length}, player: x=${player.x}, y=${player.y}`);
 }
 
 // Inicjalizacja wrogów
@@ -228,6 +248,7 @@ function shootBullet() {
         height: bulletHeight,
         speed: bulletSpeed
     });
+    console.log(`Bullet shot: x=${bullets[bullets.length-1].x}, y=${bullets[bullets.length-1].y}`);
 }
 
 // Strzał wroga (losowy kierunek)
@@ -242,6 +263,7 @@ function enemyShoot(enemy) {
         speedX: speed * Math.sin(randomAngle),
         speedY: speed * Math.cos(randomAngle)
     });
+    console.log(`Enemy bullet shot: x=${enemyBullets[enemyBullets.length-1].x}, y=${enemyBullets[enemyBullets.length-1].y}`);
 }
 
 // Znajdź najniższego wroga w danej kolumnie
@@ -283,6 +305,7 @@ function updatePowerUp(deltaTime) {
         powerUpMessage.textContent = '';
         powerUpMessage.classList.remove('power-up-active');
     }
+    console.log(`Power-up updated: bulletPowerUp=${bulletPowerUp}, powerUpTimer=${powerUpTimer}`);
 }
 
 // Pokazanie popupu przegranej lub wygranej
@@ -327,7 +350,7 @@ function startGame(diff, endless = false) {
     initGame();
     gameRunning = true;
     lastTime = 0;
-    console.log(`Game started, difficulty: ${diff}, isEndlessMode: ${isEndlessMode}, nickname: ${nickname}, Player:`, player, 'Enemies:', enemies.length);
+    console.log(`Game started, difficulty: ${diff}, isEndlessMode: ${isEndlessMode}, nickname: ${nickname}, Player: x=${player.x}, y=${player.y}, Enemies: ${enemies.length}`);
     requestAnimationFrame(gameLoop);
 }
 
@@ -356,9 +379,12 @@ restartButton.addEventListener('click', restartGame);
 
 // Ruch i logika gry
 function update(deltaTime) {
-    if (!gameRunning) return;
+    if (!gameRunning) {
+        console.log('Update skipped, gameRunning:', gameRunning);
+        return;
+    }
 
-    console.log('Updating, deltaTime:', deltaTime, 'gameRunning:', gameRunning);
+    console.log('Updating, deltaTime:', deltaTime, 'gameRunning:', gameRunning, 'player: x=', player.x, 'y=', player.y, 'keys:', JSON.stringify(keys));
 
     // Delta time w sekundach
     let dt = deltaTime / 1000;
@@ -372,11 +398,13 @@ function update(deltaTime) {
     player.x += player.dx * dt;
     if (player.x < 0) player.x = 0;
     if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+    console.log(`Player updated: x=${player.x}, y=${player.y}, dx=${player.dx}, dt=${dt}`);
 
     // Ruch pocisków gracza
     bullets.forEach((bullet, index) => {
         bullet.y -= bullet.speed * dt;
         if (bullet.y < 0) bullets.splice(index, 1);
+        console.log(`Bullet updated: x=${bullet.x}, y=${bullet.y}, index=${index}`);
     });
 
     // Ruch pocisków wrogów
@@ -391,6 +419,7 @@ function update(deltaTime) {
         if (checkCollision(bullet, player)) {
             showGameOver(false);
         }
+        console.log(`Enemy bullet updated: x=${bullet.x}, y=${bullet.y}, index=${index}`);
     });
 
     // Ruch wrogów
@@ -399,6 +428,7 @@ function update(deltaTime) {
         if (!enemy.alive) return;
         enemy.x += enemySpeed * enemyDirection * dt;
         if (enemy.x + enemy.width > canvas.width || enemy.x < 0) edge = true;
+        console.log(`Enemy updated: x=${enemy.x}, y=${enemy.y}, alive=${enemy.alive}`);
     });
 
     if (edge && !movedDown) {
@@ -406,6 +436,7 @@ function update(deltaTime) {
         enemies.forEach(enemy => {
             if (!enemy.alive) return;
             enemy.y += 20;
+            if (enemy.y + enemy.height > canvas.height) enemy.y = canvas.height - enemy.height;
         });
         movedDown = true;
         console.log('Enemies moved down');
@@ -458,6 +489,7 @@ function update(deltaTime) {
                         width: 20,
                         height: 20
                     });
+                    console.log(`Power-up spawned: x=${powerUps[powerUps.length-1].x}, y=${powerUps[powerUps.length-1].y}`);
                 }
             }
         });
@@ -474,7 +506,9 @@ function update(deltaTime) {
             bulletWidth = 15;
             bulletSpeed = 1000;
             powerUpTimer = 10; // 10 sekund
+            console.log('Power-up collected, timer:', powerUpTimer);
         }
+        console.log(`Power-up updated: x=${powerUp.x}, y=${powerUp.y}, index=${index}`);
     });
 
     updatePowerUp(deltaTime);
@@ -495,8 +529,13 @@ function update(deltaTime) {
 
 // Rysowanie
 function draw() {
+    console.log('Draw called, gameRunning:', gameRunning);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    console.log('Drawing: player:', player, 'enemies:', enemies.filter(e => e.alive).length);
+
+    // Testowe tło dla debugowania
+    ctx.fillStyle = 'blue';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    console.log('Filled background: blue');
 
     // Gracz z animacją
     ctx.save();
@@ -509,12 +548,14 @@ function draw() {
     }
     ctx.fillStyle = 'white';
     ctx.fillRect(player.x, player.y, player.width, player.height);
+    console.log(`Drawing player: x=${player.x}, y=${player.y}, width=${player.width}, height=${player.height}`);
     ctx.restore();
 
     // Pociski gracza
     ctx.fillStyle = bulletPowerUp ? 'yellow' : 'white';
     bullets.forEach(bullet => {
         ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+        console.log(`Drawing bullet: x=${bullet.x}, y=${bullet.y}`);
     });
 
     // Wrogowie
@@ -522,7 +563,7 @@ function draw() {
     enemies.forEach(enemy => {
         if (enemy.alive) {
             ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-            console.log(`Drawing enemy: x=${enemy.x}, y=${enemy.y}`);
+            console.log(`Drawing enemy: x=${enemy.x}, y=${enemy.y}, alive=${enemy.alive}`);
         }
     });
 
@@ -530,12 +571,14 @@ function draw() {
     ctx.fillStyle = 'orange';
     enemyBullets.forEach(bullet => {
         ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+        console.log(`Drawing enemy bullet: x=${bullet.x}, y=${bullet.y}`);
     });
 
     // Power-upy
     ctx.fillStyle = 'green';
     powerUps.forEach(powerUp => {
         ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
+        console.log(`Drawing power-up: x=${powerUp.x}, y=${powerUp.y}`);
     });
 }
 
@@ -555,7 +598,7 @@ function gameLoop(timestamp) {
         deltaTime = 0;
     }
 
-    console.log('Game loop running, timestamp:', timestamp, 'deltaTime:', deltaTime);
+    console.log('Game loop running, timestamp:', timestamp, 'deltaTime:', deltaTime, 'gameRunning:', gameRunning);
 
     update(deltaTime);
     draw();
