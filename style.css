@@ -130,11 +130,12 @@ body {
 #startScreen table {
     margin: 20px auto;
     border-collapse: collapse;
-    width: 80%;
+    width: 60%; /* Zmniejszona szerokość dla 3 kolumn */
 }
 #startScreen th, #startScreen td {
     padding: 8px;
     border: 1px solid #444;
+    text-align: center; /* Wyrównanie dla lepszego wyglądu */
 }
 #startScreen th {
     background: #333;
