@@ -150,7 +150,11 @@ function saveHighScore() {
 }
 
 function updateHighScoresTable() {
-    const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+    const highScores = JSON.parse(localStorage.getItem('highScores')) || [
+        { nickname: "ArcadeMaster", score: 500, timestamp: Date.now() },
+        { nickname: "SpaceAce", score: 300, timestamp: Date.now() },
+        { nickname: "InvaderKiller", score: 100, timestamp: Date.now() }
+    ];
     highScoresTable.innerHTML = `
         <tr>
             <th>Rank</th>
