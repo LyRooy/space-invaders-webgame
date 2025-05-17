@@ -290,7 +290,12 @@ function showGameOver(isWin) {
     finalScoreDisplay.textContent = `Score: ${score}`;
     gameOverPopup.querySelector('h2').textContent = isWin ? 'Won!' : 'Lost!';
     gameOverPopup.style.display = 'flex';
-    saveHighScore();
+    if (isEndlessMode) {
+        console.log(`Saving high score for Endless mode, score: ${score}, nickname: ${nickname}`);
+        saveHighScore();
+    } else {
+        console.log(`Skipping high score save (non-Endless mode: ${difficulty}), score: ${score}, nickname: ${nickname}`);
+    }
 }
 
 // Powrót do menu wyboru poziomu trudności
