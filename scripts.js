@@ -18,6 +18,7 @@ const nicknameInput = document.getElementById('nicknameInput');
 const highScoresTable = document.getElementById('highScores');
 
 // Inicjalizacja WebGL
+let useWebGL = true;
 try {
     glfxCanvas = fx.canvas();
     glfxCanvas.width = canvas.width;
@@ -25,8 +26,11 @@ try {
     glfxCanvas.id = 'glCanvas';
     glCanvas.parentNode.replaceChild(glfxCanvas, glCanvas);
     glfxTexture = glfxCanvas.texture(canvas);
+    console.log('WebGL initialized successfully');
 } catch (e) {
-    console.error('WebGL not supported:', e);
+    console.error('WebGL initialization failed:', e);
+    useWebGL = false;
+    canvas.style.opacity = '1'; // Fallback: pokazujemy #gameCanvas
 }
 
 // Obiekt gracza
@@ -81,9 +85,9 @@ let difficultyLevel = 0; // Licznik odrodzeń w trybie Endless
 // Poziom trudności
 let difficulty = 'medium';
 
-// Marginesy dla zakrzywienia CRT
-const marginX = canvas.width * 0.1; // 10% z każdej strony
-const marginY = canvas.height * 0.1;
+// Marginesy dla zakrzywienia CRT (zmniejszone)
+const marginX = canvas.width * 0.05; // 5% = 40px
+const marginY = canvas.height * 0.05; // 5% = 30px
 
 // Sterowanie
 let keys = {};
@@ -245,7 +249,7 @@ function initGame() {
     powerUpMessage.textContent = '';
     powerUpMessage.classList.remove('power-up-active');
     initEnemies();
-    console.log(`Game initialized, score: ${score}, scoreDisplay: ${scoreDisplay.textContent}, enemies: ${enemies.length}`);
+    console.log(`Game initialized, score: ${score}, scoreDisplay: ${scoreDisplay.textContent}, enemies: ${enemies.length}, player: x=${player.x}, y=${player.y}`);
 }
 
 // Inicjalizacja wrogów
@@ -278,6 +282,7 @@ function shootBullet() {
         height: bulletHeight,
         speed: bulletSpeed
     });
+    console.log(`Bullet shot: x=${bullets[bullets.length-1].x}, y=${bullets[bullets.length-1].y}`);
 }
 
 // Strzał wroga (losowy kierunek)
@@ -292,6 +297,7 @@ function enemyShoot(enemy) {
         speedX: speed * Math.sin(randomAngle),
         speedY: speed * Math.cos(randomAngle)
     });
+    console.log(`Enemy bullet shot: x=${enemyBullets[enemyBullets.length-1].x}, y=${enemyBullets[enemyBullets.length-1].y}`);
 }
 
 // Znajdź najniższego wroga w danej kolumnie
@@ -377,7 +383,7 @@ function startGame(diff, endless = false) {
     initGame();
     gameRunning = true;
     lastTime = 0;
-    console.log(`Game started, difficulty: ${diff}, isEndlessMode: ${isEndlessMode}, nickname: ${nickname}, Player:`, player, 'Enemies:', enemies.length);
+    console.log(`Game started, difficulty: ${diff}, isEndlessMode: ${isEndlessMode}, nickname: ${nickname}, Player: x=${player.x}, y=${player.y}, Enemies: ${enemies.length}`);
     requestAnimationFrame(gameLoop);
 }
 
@@ -408,7 +414,7 @@ restartButton.addEventListener('click', restartGame);
 function update(deltaTime) {
     if (!gameRunning) return;
 
-    console.log('Updating, deltaTime:', deltaTime, 'gameRunning:', gameRunning);
+    console.log('Updating, deltaTime:', deltaTime, 'gameRunning:', gameRunning, 'player: x=', player.x, 'y=', player.y);
 
     // Delta time w sekundach
     let dt = deltaTime / 1000;
@@ -422,11 +428,13 @@ function update(deltaTime) {
     player.x += player.dx * dt;
     if (player.x < marginX) player.x = marginX;
     if (player.x + player.width > canvas.width - marginX) player.x = canvas.width - marginX - player.width;
+    console.log(`Player updated: x=${player.x}, y=${player.y}, dx=${player.dx}`);
 
     // Ruch pocisków gracza
     bullets.forEach((bullet, index) => {
         bullet.y -= bullet.speed * dt;
         if (bullet.y < marginY) bullets.splice(index, 1);
+        console.log(`Bullet updated: x=${bullet.x}, y=${bullet.y}, index=${index}`);
     });
 
     // Ruch pocisków wrogów
@@ -441,6 +449,7 @@ function update(deltaTime) {
         if (checkCollision(bullet, player)) {
             showGameOver(false);
         }
+        console.log(`Enemy bullet updated: x=${bullet.x}, y=${bullet.y}, index=${index}`);
     });
 
     // Ruch wrogów
@@ -449,6 +458,7 @@ function update(deltaTime) {
         if (!enemy.alive) return;
         enemy.x += enemySpeed * enemyDirection * dt;
         if (enemy.x + enemy.width > canvas.width - marginX || enemy.x < marginX) edge = true;
+        console.log(`Enemy updated: x=${enemy.x}, y=${enemy.y}, alive=${enemy.alive}`);
     });
 
     if (edge && !movedDown) {
@@ -509,6 +519,7 @@ function update(deltaTime) {
                         width: 20,
                         height: 20
                     });
+                    console.log(`Power-up spawned: x=${powerUps[powerUps.length-1].x}, y=${powerUps[powerUps.length-1].y}`);
                 }
             }
         });
@@ -525,7 +536,9 @@ function update(deltaTime) {
             bulletWidth = 15;
             bulletSpeed = 1000;
             powerUpTimer = 10; // 10 sekund
+            console.log('Power-up collected, timer:', powerUpTimer);
         }
+        console.log(`Power-up updated: x=${powerUp.x}, y=${powerUp.y}, index=${index}`);
     });
 
     updatePowerUp(deltaTime);
@@ -547,7 +560,7 @@ function update(deltaTime) {
 // Rysowanie
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    console.log('Drawing: player:', player, 'enemies:', enemies.filter(e => e.alive).length);
+    console.log('Drawing: player: x=', player.x, 'y=', player.y, 'enemies:', enemies.filter(e => e.alive).length);
 
     // Gracz z animacją
     ctx.save();
@@ -560,12 +573,14 @@ function draw() {
     }
     ctx.fillStyle = 'white';
     ctx.fillRect(player.x, player.y, player.width, player.height);
+    console.log(`Drawing player: x=${player.x}, y=${player.y}, width=${player.width}, height=${player.height}`);
     ctx.restore();
 
     // Pociski gracza
     ctx.fillStyle = bulletPowerUp ? 'yellow' : 'white';
     bullets.forEach(bullet => {
         ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+        console.log(`Drawing bullet: x=${bullet.x}, y=${bullet.y}`);
     });
 
     // Wrogowie
@@ -573,7 +588,7 @@ function draw() {
     enemies.forEach(enemy => {
         if (enemy.alive) {
             ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-            console.log(`Drawing enemy: x=${enemy.x}, y=${enemy.y}`);
+            console.log(`Drawing enemy: x=${enemy.x}, y=${enemy.y}, alive=${enemy.alive}`);
         }
     });
 
@@ -581,23 +596,31 @@ function draw() {
     ctx.fillStyle = 'orange';
     enemyBullets.forEach(bullet => {
         ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+        console.log(`Drawing enemy bullet: x=${bullet.x}, y=${bullet.y}`);
     });
 
     // Power-upy
     ctx.fillStyle = 'green';
     powerUps.forEach(powerUp => {
         ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
+        console.log(`Drawing power-up: x=${powerUp.x}, y=${powerUp.y}`);
     });
 
     // Aplikuj efekty CRT
-    if (glfxCanvas && glfxTexture) {
-        glfxTexture.load(canvas);
-        glfxCanvas.draw(glfxTexture)
-            .bulgePinch(canvas.width / 2, canvas.height / 2, canvas.width * 0.75, 0.3)
-            .noise(0.1)
-            .vignette(0.5, 0.5)
-            .update();
-        console.log('Applied CRT effects: bulgePinch, noise, vignette');
+    if (useWebGL && glfxCanvas && glfxTexture) {
+        try {
+            glfxTexture.load(canvas);
+            glfxCanvas.draw(glfxTexture)
+                .bulgePinch(canvas.width / 2, canvas.height / 2, canvas.width * 0.75, 0.3)
+                .noise(0.1)
+                .vignette(0.5, 0.5)
+                .update();
+            console.log('Applied CRT effects: bulgePinch, noise, vignette');
+        } catch (e) {
+            console.error('Error applying CRT effects:', e);
+            useWebGL = false;
+            canvas.style.opacity = '1';
+        }
     }
 }
 
