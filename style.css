@@ -173,3 +173,9 @@ body {
 .player-pulse {
     animation: pulse 0.5s infinite;
 }
+#endlessButton {
+    background: #FFD700; /* Złoty */
+}
+#endlessButton:hover {
+    background: #FFEC8B; /* Jaśniejszy złoty */
+}
