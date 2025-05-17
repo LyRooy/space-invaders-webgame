@@ -1,5 +1,7 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+const glCanvas = document.getElementById('glCanvas');
+let glfxCanvas, glfxTexture;
 const scoreDisplay = document.getElementById('score');
 const gameOverPopup = document.getElementById('gameOverPopup');
 const finalScoreDisplay = document.getElementById('finalScore');
@@ -14,6 +16,18 @@ const hardButton = document.getElementById('hardButton');
 const endlessButton = document.getElementById('endlessButton');
 const nicknameInput = document.getElementById('nicknameInput');
 const highScoresTable = document.getElementById('highScores');
+
+// Inicjalizacja WebGL
+try {
+    glfxCanvas = fx.canvas();
+    glfxCanvas.width = canvas.width;
+    glfxCanvas.height = canvas.height;
+    glfxCanvas.id = 'glCanvas';
+    glCanvas.parentNode.replaceChild(glfxCanvas, glCanvas);
+    glfxTexture = glfxCanvas.texture(canvas);
+} catch (e) {
+    console.error('WebGL not supported:', e);
+}
 
 // Obiekt gracza
 let player = {
@@ -66,6 +80,10 @@ let difficultyLevel = 0; // Licznik odrodzeń w trybie Endless
 
 // Poziom trudności
 let difficulty = 'medium';
+
+// Marginesy dla zakrzywienia CRT
+const marginX = canvas.width * 0.1; // 10% z każdej strony
+const marginY = canvas.height * 0.1;
 
 // Sterowanie
 let keys = {};
@@ -402,20 +420,20 @@ function update(deltaTime) {
     else player.dx = 0;
 
     player.x += player.dx * dt;
-    if (player.x < 0) player.x = 0;
-    if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+    if (player.x < marginX) player.x = marginX;
+    if (player.x + player.width > canvas.width - marginX) player.x = canvas.width - marginX - player.width;
 
     // Ruch pocisków gracza
     bullets.forEach((bullet, index) => {
         bullet.y -= bullet.speed * dt;
-        if (bullet.y < 0) bullets.splice(index, 1);
+        if (bullet.y < marginY) bullets.splice(index, 1);
     });
 
     // Ruch pocisków wrogów
     enemyBullets.forEach((bullet, index) => {
         bullet.x += bullet.speedX * dt;
         bullet.y += bullet.speedY * dt;
-        if (bullet.y > canvas.height || bullet.x < 0 || bullet.x > canvas.width) {
+        if (bullet.y > canvas.height - marginY || bullet.x < marginX || bullet.x > canvas.width - marginX) {
             enemyBullets.splice(index, 1);
         }
 
@@ -430,7 +448,7 @@ function update(deltaTime) {
     enemies.forEach(enemy => {
         if (!enemy.alive) return;
         enemy.x += enemySpeed * enemyDirection * dt;
-        if (enemy.x + enemy.width > canvas.width || enemy.x < 0) edge = true;
+        if (enemy.x + enemy.width > canvas.width - marginX || enemy.x < marginX) edge = true;
     });
 
     if (edge && !movedDown) {
@@ -438,6 +456,7 @@ function update(deltaTime) {
         enemies.forEach(enemy => {
             if (!enemy.alive) return;
             enemy.y += 20;
+            if (enemy.y + enemy.height > canvas.height - marginY) enemy.y = canvas.height - marginY - enemy.height;
         });
         movedDown = true;
         console.log('Enemies moved down');
@@ -448,7 +467,7 @@ function update(deltaTime) {
     // Kolizje wrogów z graczem lub dolną krawędzią
     enemies.forEach(enemy => {
         if (!enemy.alive) return;
-        if (checkCollision(enemy, player) || enemy.y + enemy.height >= canvas.height) {
+        if (checkCollision(enemy, player) || enemy.y + enemy.height >= canvas.height - marginY) {
             showGameOver(false);
         }
     });
@@ -498,7 +517,7 @@ function update(deltaTime) {
     // Ruch i kolizje power-upów
     powerUps.forEach((powerUp, index) => {
         powerUp.y += 200 * dt; // 200 pikseli na sekundę
-        if (powerUp.y > canvas.height) powerUps.splice(index, 1);
+        if (powerUp.y > canvas.height - marginY) powerUps.splice(index, 1);
 
         if (checkCollision(powerUp, player)) {
             powerUps.splice(index, 1);
@@ -569,6 +588,17 @@ function draw() {
     powerUps.forEach(powerUp => {
         ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
     });
+
+    // Aplikuj efekty CRT
+    if (glfxCanvas && glfxTexture) {
+        glfxTexture.load(canvas);
+        glfxCanvas.draw(glfxTexture)
+            .bulgePinch(canvas.width / 2, canvas.height / 2, canvas.width * 0.75, 0.3)
+            .noise(0.1)
+            .vignette(0.5, 0.5)
+            .update();
+        console.log('Applied CRT effects: bulgePinch, noise, vignette');
+    }
 }
 
 // Główna pętla gry
