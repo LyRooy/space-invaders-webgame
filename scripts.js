@@ -130,9 +130,9 @@ function saveHighScore() {
             filteredScores.sort((a, b) => b.score - a.score);
             if (filteredScores.length > 10) filteredScores.length = 10;
             localStorage.setItem('highScores', JSON.stringify(filteredScores));
-            console.log(`High score saved (overwritten for ${nickname}): score: ${score}`);
+            console.log(`High score saved (overwritten for ${nickname}): score: ${score}, mode: Endless`);
         } else {
-            console.log(`High score not saved (lower score for ${nickname}): current: ${existingScore.score}, new: ${score}`);
+            console.log(`High score not saved (lower score for ${nickname}): current: ${existingScore.score}, new: ${score}, mode: Endless`);
         }
     } else {
         // Dodaj nowy wpis, jeśli nick nie istnieje
@@ -144,7 +144,7 @@ function saveHighScore() {
         highScores.sort((a, b) => b.score - a.score);
         if (highScores.length > 10) highScores.length = 10;
         localStorage.setItem('highScores', JSON.stringify(highScores));
-        console.log(`High score saved (new for ${nickname}): score: ${score}`);
+        console.log(`High score saved (new for ${nickname}): score: ${score}, mode: Endless`);
     }
     updateHighScoresTable();
 }
@@ -290,6 +290,7 @@ function showGameOver(isWin) {
     finalScoreDisplay.textContent = `Score: ${score}`;
     gameOverPopup.querySelector('h2').textContent = isWin ? 'Won!' : 'Lost!';
     gameOverPopup.style.display = 'flex';
+    console.log(`Game over, isEndlessMode: ${isEndlessMode}, difficulty: ${difficulty}, score: ${score}, nickname: ${nickname}`);
     if (isEndlessMode) {
         console.log(`Saving high score for Endless mode, score: ${score}, nickname: ${nickname}`);
         saveHighScore();
@@ -324,13 +325,13 @@ function startGame(diff, endless = false) {
     initGame();
     gameRunning = true;
     lastTime = 0;
-    console.log('Game started, difficulty:', difficulty, 'endless:', isEndlessMode, 'nickname:', nickname, 'Player:', player, 'Enemies:', enemies.length);
+    console.log(`Game started, difficulty: ${diff}, isEndlessMode: ${isEndlessMode}, nickname: ${nickname}, Player:`, player, 'Enemies:', enemies.length);
     requestAnimationFrame(gameLoop);
 }
 
-easyButton.addEventListener('click', () => startGame('easy'));
-mediumButton.addEventListener('click', () => startGame('medium'));
-hardButton.addEventListener('click', () => startGame('hard'));
+easyButton.addEventListener('click', () => startGame('easy', false));
+mediumButton.addEventListener('click', () => startGame('medium', false));
+hardButton.addEventListener('click', () => startGame('hard', false));
 endlessButton.addEventListener('click', () => startGame(difficulty, true));
 
 // Restart gry
@@ -345,7 +346,7 @@ function restartGame() {
     setDifficulty(difficulty);
     gameRunning = true;
     lastTime = 0;
-    console.log(`Game restarted, score: ${score}, scoreDisplay: ${scoreDisplay.textContent}, difficultyLevel: 0, difficulty: ${difficulty}, endless: ${isEndlessMode}`);
+    console.log(`Game restarted, score: ${score}, scoreDisplay: ${scoreDisplay.textContent}, difficultyLevel: 0, difficulty: ${difficulty}, isEndlessMode: ${isEndlessMode}`);
     requestAnimationFrame(gameLoop);
 }
 
@@ -498,7 +499,7 @@ function draw() {
     // Gracz z animacją
     ctx.save();
     if (bulletPowerUp) {
-        const scale = 1 + 0.2 * Math.sin(performance.now() / 100); // Pulsowanie
+        const scale = 1 + 6.2 * Math.sin(performance.now() / 100); // Pulsowanie
         ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
         ctx.scale(scale, scale);
         ctx.translate(-(player.x + player.width / 2), -(player.y + player.height / 2));
