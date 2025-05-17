@@ -62,6 +62,7 @@ let lastTime = 0;
 let isEndlessMode = false;
 let nickname = '';
 let movedDown = false; // Flaga dla przesunięcia wrogów
+let difficultyLevel = 0; // Licznik odrodzeń w trybie Endless
 
 // Poziom trudności
 let difficulty = 'medium';
@@ -89,6 +90,7 @@ document.addEventListener('keyup', (e) => {
 // Ustawianie parametrów trudności
 function setDifficulty(diff) {
     difficulty = diff;
+    difficultyLevel = 0; // Resetuj poziom trudności w trybie normalnym
     if (difficulty === 'easy') {
         enemyShootInterval = 4000; // 4 sekundy
         enemySpeed = 50; // 50 pikseli na sekundę
@@ -99,16 +101,24 @@ function setDifficulty(diff) {
         enemyShootInterval = 1500; // 1.5 sekundy
         enemySpeed = 150; // 150 pikseli na sekundę
     }
-    console.log(`Difficulty: ${difficulty}, enemySpeed: ${enemySpeed}px/s, enemyShootInterval: ${enemyShootInterval}ms`);
+    console.log(`Difficulty: ${difficulty}, enemySpeed: ${enemySpeed}px/s, enemyShootInterval: ${enemyShootInterval}ms, difficultyLevel: ${difficultyLevel}`);
+}
+
+// Zwiększanie trudności w trybie Endless
+function increaseDifficulty() {
+    difficultyLevel++;
+    enemySpeed = Math.min(650, enemySpeed + 50); // Max 650px/s
+    enemyShootInterval = Math.max(500, enemyShootInterval - 250); // Min 500ms
+    console.log(`Endless mode difficulty increased: difficultyLevel: ${difficultyLevel}, enemySpeed: ${enemySpeed}px/s, enemyShootInterval: ${enemyShootInterval}ms`);
 }
 
 // Tabela wyników
 function saveHighScore() {
     if (!nickname) nickname = 'Anonymous';
     const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
-    highScores.push({ nickname, score, difficulty, timestamp: Date.now() });
-    highScores.sort((a, b) => b.score - a.score); // Sortuj malejąco po wyniku
-    if (highScores.length > 10) highScores.length = 10; // Maks. 10 wyników
+    highScores.push({ nickname, score, difficulty: isEndlessMode ? `Endless (${difficulty})` : difficulty, timestamp: Date.now() });
+    highScores.sort((a, b) => b.score - a.score);
+    if (highScores.length > 10) highScores.length = 10;
     localStorage.setItem('highScores', JSON.stringify(highScores));
     updateHighScoresTable();
 }
@@ -148,7 +158,10 @@ function initGame() {
     bullets = [];
     enemyBullets = [];
     powerUps = [];
-    if (!isEndlessMode) score = 0; // Nie resetuj wyniku w trybie Endless
+    if (!isEndlessMode) {
+        score = 0;
+        difficultyLevel = 0;
+    }
     bulletPowerUp = false;
     bulletWidth = 5;
     bulletSpeed = 700;
@@ -194,8 +207,8 @@ function shootBullet() {
 
 // Strzał wroga (losowy kierunek)
 function enemyShoot(enemy) {
-    const randomAngle = (Math.random() - 0.5) * Math.PI / 4; // Losowy kąt ±22.5 stopni
-    const speed = 400; // 400 pikseli na sekundę
+    const randomAngle = (Math.random() - 0.5) * Math.PI / 4;
+    const speed = 400;
     enemyBullets.push({
         x: enemy.x + enemy.width / 2 - 2.5,
         y: enemy.y + enemy.height,
@@ -230,7 +243,7 @@ function checkCollision(rect1, rect2) {
 // Aktualizacja power-upu
 function updatePowerUp(deltaTime) {
     if (bulletPowerUp) {
-        powerUpTimer -= deltaTime / 1000; // Odejmuj czas w sekundach
+        powerUpTimer -= deltaTime / 1000;
         powerUpMessage.textContent = 'Power-Up Active!';
         powerUpMessage.classList.add('power-up-active');
         powerUpMessage.style.color = 'yellow';
@@ -313,7 +326,6 @@ function update(deltaTime) {
 
     console.log('Updating, deltaTime:', deltaTime, 'gameRunning:', gameRunning);
 
-    // Delta time w sekundach
     let dt = deltaTime / 1000;
     if (dt < 0 || isNaN(dt)) dt = 0;
 
@@ -340,7 +352,6 @@ function update(deltaTime) {
             enemyBullets.splice(index, 1);
         }
 
-        // Kolizja z graczem
         if (checkCollision(bullet, player)) {
             showGameOver(false);
         }
@@ -403,7 +414,6 @@ function update(deltaTime) {
                 score += 10;
                 scoreDisplay.textContent = 'Score: ' + score;
 
-                // Losowy power-up
                 if (Math.random() < 0.2) {
                     powerUps.push({
                         x: enemy.x,
@@ -436,6 +446,7 @@ function update(deltaTime) {
     let aliveEnemies = enemies.filter(enemy => enemy.alive).length;
     if (aliveEnemies === 0) {
         if (isEndlessMode) {
+            increaseDifficulty();
             initEnemies();
             console.log('Endless mode: Enemies respawned');
         } else {
@@ -449,7 +460,6 @@ function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     console.log('Drawing: player:', player, 'enemies:', enemies.filter(e => e.alive).length);
 
-    // Gracz z animacją
     ctx.save();
     if (bulletPowerUp) {
         const scale = 1 + 0.2 * Math.sin(performance.now() / 100);
@@ -461,13 +471,11 @@ function draw() {
     ctx.fillRect(player.x, player.y, player.width, player.height);
     ctx.restore();
 
-    // Pociski gracza
     ctx.fillStyle = bulletPowerUp ? 'yellow' : 'white';
     bullets.forEach(bullet => {
         ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
     });
 
-    // Wrogowie
     ctx.fillStyle = 'red';
     enemies.forEach(enemy => {
         if (enemy.alive) {
@@ -475,13 +483,11 @@ function draw() {
         }
     });
 
-    // Pociski wrogów
     ctx.fillStyle = 'orange';
     enemyBullets.forEach(bullet => {
         ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
     });
 
-    // Power-upy
     ctx.fillStyle = 'green';
     powerUps.forEach(powerUp => {
         ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
