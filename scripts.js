@@ -153,24 +153,38 @@ function saveHighScore() {
 
 function updateHighScoresTable() {
     let highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+    console.log('Loaded highScores from localStorage:', highScores);
     
-    // Dodaj domyślne wyniki, jeśli za mało
+    // Domyślne wyniki
     const defaultScores = [
         { nickname: "ArcadeMaster", score: 500, timestamp: Date.now() },
         { nickname: "SpaceAce", score: 300, timestamp: Date.now() },
         { nickname: "InvaderKiller", score: 100, timestamp: Date.now() }
     ];
-    if (highScores.length < 3) {
+    
+    // Jeśli highScores puste, dodaj domyślne
+    if (highScores.length === 0) {
+        highScores = [...defaultScores];
+        console.log('Initialized highScores with defaults:', highScores);
+    } else {
+        // Dodaj brakujące domyślne wyniki
         defaultScores.forEach(defaultScore => {
             if (!highScores.some(entry => entry.nickname === defaultScore.nickname)) {
                 highScores.push(defaultScore);
+                console.log(`Added default score: ${defaultScore.nickname}, ${defaultScore.score}`);
             }
         });
-        highScores.sort((a, b) => b.score - a.score);
-        if (highScores.length > 10) highScores.length = 10;
-        localStorage.setItem('highScores', JSON.stringify(highScores));
     }
 
+    // Sortuj i ogranicz do 10
+    highScores.sort((a, b) => b.score - a.score);
+    if (highScores.length > 10) highScores.length = 10;
+    
+    // Zapisz do localStorage
+    localStorage.setItem('highScores', JSON.stringify(highScores));
+    console.log('Saved highScores to localStorage:', highScores);
+
+    // Aktualizuj tabelę
     highScoresTable.innerHTML = `
         <tr>
             <th>Rank</th>
@@ -187,7 +201,8 @@ function updateHighScoresTable() {
         `;
         highScoresTable.appendChild(row);
     });
-    console.log('High scores table updated:', highScores);
+    console.log('High scores table updated, rendered:', highScores);
+    console.log('Table HTML:', highScoresTable.outerHTML);
 }
 
 // Inicjalizacja gry
@@ -532,10 +547,10 @@ function draw() {
     console.log('Draw called, gameRunning:', gameRunning);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Testowe tło dla debugowania
-    ctx.fillStyle = 'blue';
+    // Czarne tło
+    ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    console.log('Filled background: blue');
+    console.log('Filled background: black');
 
     // Gracz z animacją
     ctx.save();
