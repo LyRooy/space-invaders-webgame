@@ -295,7 +295,7 @@ function showGameOver(isWin) {
         console.log(`Saving high score for Endless mode, score: ${score}, nickname: ${nickname}`);
         saveHighScore();
     } else {
-        console.log(`Skipping high score save (non-Endless mode: ${difficulty}), score: ${score}, nickname: ${nickname}`);
+        console.log(`Skipping high score save for non-Endless mode (${difficulty}), score: ${score}, nickname: ${nickname}`);
     }
 }
 
@@ -499,7 +499,8 @@ function draw() {
     // Gracz z animacją
     ctx.save();
     if (bulletPowerUp) {
-        const scale = 1 + 6.2 * Math.sin(performance.now() / 100); // Pulsowanie
+        const scale = 1 + 0.2 * Math.sin(performance.now() / 100); // Pulsowanie
+        console.log(`Power-up active, player scale: ${scale}`);
         ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
         ctx.scale(scale, scale);
         ctx.translate(-(player.x + player.width / 2), -(player.y + player.height / 2));
@@ -518,7 +519,7 @@ function draw() {
     ctx.fillStyle = 'red';
     enemies.forEach(enemy => {
         if (enemy.alive) {
-            ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+            ctx.fillRect(enemy.x, player.y, enemy.width, enemy.height);
         }
     });
 
