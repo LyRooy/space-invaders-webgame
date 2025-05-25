@@ -1,7 +1,4 @@
-canvas {
-    border: 1px solid white;
-    background: black;
-}
+/* === GLOBALNE STYLE === */
 body {
     display: flex;
     justify-content: center;
@@ -12,6 +9,14 @@ body {
     color: white;
     font-family: Arial, sans-serif;
 }
+
+/* === STYLOWANIE CANVAS === */
+canvas {
+    border: 1px solid white;
+    background: black;
+}
+
+/* === KONTENERY UKŁADU === */
 #gameContainer {
     position: relative;
     width: 800px;
@@ -20,6 +25,7 @@ body {
     align-items: center;
     margin: 0 auto;
 }
+
 #canvasAndControls {
     position: relative;
     width: 800px;
@@ -27,12 +33,23 @@ body {
     flex-direction: column;
     align-items: center;
 }
+
+/* === INTERFEJS GRY === */
 #score {
     position: absolute;
     top: -30px;
     left: 0;
     font-size: 24px;
 }
+
+#combo {
+    position: absolute;
+    top: -30px;
+    right: 0;
+    font-size: 24px;
+    color: #ff6b35;
+}
+
 #controls {
     position: absolute;
     top: 0;
@@ -43,77 +60,85 @@ body {
     max-width: 200px;
     font-size: 16px;
 }
+
 #controls h3 {
     margin: 0 0 10px;
 }
+
 #controls p {
     margin: 5px 0;
 }
-#gameOverPopup {
+
+/* === WYŚWIETLANIE POWER-UPÓW === */
+#powerUpContainer {
+    margin-top: 10px;
+    display: flex;
+    gap: 20px;
+    height: 50px;
+    align-items: center;
+    font-size: 18px;
+}
+
+.power-up-indicator {
+    padding: 10px 15px;
+    border-radius: 5px;
+    background: #222;
+    border: 2px solid #444;
+    min-width: 120px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.power-up-indicator.active {
+    animation: pulseIndicator 0.5s infinite;
+    border-color: yellow;
+    background: #333;
+}
+
+@keyframes pulseIndicator {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* === POPUPY === */
+.popup {
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.8);
     display: none;
     justify-content: center;
     align-items: center;
     z-index: 10;
 }
-#gameOverContent {
+
+.popup-content {
     background: #222;
-    padding: 20px;
+    padding: 30px;
     border-radius: 10px;
     text-align: center;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+    max-width: 400px;
 }
-#gameOverContent h2 {
+
+.popup-content h2 {
     margin: 0 0 20px;
     font-size: 32px;
 }
-#gameOverContent p {
+
+.popup-content p {
     margin: 0 0 20px;
     font-size: 24px;
 }
-#popupButtons {
-    display: flex;
-    gap: 5px;
-    justify-content: center;
-}
-#restartButton, #returnToMenuButton {
-    padding: 8px 16px;
-    font-size: 16px;
-    background: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background 0.3s;
-}
-#restartButton:hover, #returnToMenuButton:hover {
-    background: #45a049;
-}
-#startScreen {
-    background: #222;
-    padding: 20px;
-    border-radius: 10px;
-    text-align: center;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-    z-index: 10;
-}
-#startScreen h2 {
-    margin: 0 0 20px;
-    font-size: 36px;
-}
-#startScreen h3 {
-    margin: 20px 0;
-    font-size: 24px;
-}
-#startScreen button {
-    padding: 10px 20px;
-    margin: 5px;
+
+/* === PRZYCISKI === */
+button {
+    padding: 12px 25px;
+    margin: 10px;
     font-size: 18px;
     background: #4CAF50;
     color: white;
@@ -122,10 +147,23 @@ body {
     cursor: pointer;
     transition: background 0.3s;
 }
-#startScreen button:hover {
+
+button:hover {
     background: #45a049;
 }
-#startScreen input {
+
+#playButton {
+    background: #FFD700;
+    font-size: 22px;
+    padding: 15px 30px;
+}
+
+#playButton:hover {
+    background: #FFEC8B;
+}
+
+/* === POLA WPROWADZANIA === */
+input {
     padding: 8px;
     margin: 10px 0;
     font-size: 16px;
@@ -133,60 +171,40 @@ body {
     border-radius: 5px;
     width: 200px;
 }
-#startScreen table {
+
+/* === TABELA NAJLEPSZYCH WYNIKÓW === */
+table {
     margin: 20px auto;
     border-collapse: collapse;
-    width: 60%;
+    width: 100%;
 }
-#startScreen th, #startScreen td {
+
+th, td {
     padding: 8px;
     border: 1px solid #444;
     text-align: center;
 }
-#startScreen th {
+
+th {
     background: #333;
 }
-#startScreen td {
+
+td {
     background: #222;
 }
-#powerUpMessage {
-    position: absolute;
-    top: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 800px;
-    font-size: 18px;
-    color: yellow;
-    text-align: center;
-    opacity: 0;
-    transition: opacity 0.5s ease-in;
+
+/* === KLASY POMOCNICZE === */
+.hidden { 
+    display: none !important; 
 }
-#powerUpMessage.power-up-active {
-    opacity: 1;
-    animation: pulseText 0.5s infinite;
+
+/* === ANIMACJE COMBO === */
+.combo-active {
+    animation: pulseCombo 0.3s infinite;
 }
-@keyframes pulseText {
-    0% { transform: translateX(-50%) scale(1); }
-    50% { transform: translateX(-50%) scale(1.1); }
-    100% { transform: translateX(-50%) scale(1); }
-}
-@keyframes pulse {
+
+@keyframes pulseCombo {
     0% { transform: scale(1); }
-    50% { transform: scale(1.2); }
+    50% { transform: scale(1.1); }
     100% { transform: scale(1); }
-}
-.player-pulse {
-    animation: pulse 0.5s infinite;
-}
-#startScreen #easyButton, #startScreen #mediumButton, #startScreen #hardButton {
-    background: #4CAF50 !important;
-}
-#startScreen #easyButton:hover, #startScreen #mediumButton:hover, #startScreen #hardButton:hover {
-    background: #45a049 !important;
-}
-#startScreen #endlessButton {
-    background: #FFD700 !important;
-}
-#startScreen #endlessButton:hover {
-    background: #FFEC8B !important;
 }

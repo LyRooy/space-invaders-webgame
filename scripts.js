@@ -1,625 +1,1113 @@
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const scoreDisplay = document.getElementById('score');
-const gameOverPopup = document.getElementById('gameOverPopup');
-const finalScoreDisplay = document.getElementById('finalScore');
-const restartButton = document.getElementById('restartButton');
-const returnToMenuButton = document.getElementById('returnToMenuButton');
-const startScreen = document.getElementById('startScreen');
-const gameContainer = document.getElementById('gameContainer');
-const powerUpMessage = document.getElementById('powerUpMessage');
-const easyButton = document.getElementById('easyButton');
-const mediumButton = document.getElementById('mediumButton');
-const hardButton = document.getElementById('hardButton');
-const endlessButton = document.getElementById('endlessButton');
-const nicknameInput = document.getElementById('nicknameInput');
-const highScoresTable = document.getElementById('highScores');
+/*
+===============================================
+SPACE INVADERS - DOKUMENTACJA
+===============================================
 
-// Obiekt gracza
-let player = {
-    x: canvas.width / 2 - 25,
-    y: canvas.height - 50,
-    width: 50,
-    height: 30,
-    speed: 300, // Piksele na sekundę
-    dx: 0
+FUNKCJE:
+- Tylko tryb nieskończony - fale stają się coraz trudniejsze
+- Brak systemu żyć - jedno trafienie kończy grę
+- Ulepszona grafika z robotami/statkami
+- Power-upy: Power Shot, Rapid Fire, Shield
+- System combo za kolejne trafienia
+- Inteligentna sztuczna inteligencja wrogów różnych typów
+- Efekty eksplozji cząsteczkowych
+- System najlepszych wyników z localStorage
+
+STEROWANIE:
+- Strzałki: Ruch statku gracza
+- Spacja: Strzał (pojedyncze strzały, szybkie strzelanie tylko z power-upem)
+- R: Poddaj się i wróć do menu
+- Enter: Restart po końcu gry
+- ESC: Powrót do menu podczas gry lub w game over
+
+POWER-UPY:
+- Power Shot: Większe, mocniejsze pociski
+- Rapid Fire: Szybsze tempo strzelania
+- Shield: Tymczasowa nieśmiertelność
+
+TYPY WROGÓW:
+- Normal (Czerwony): Podstawowi wrogowie, wolne strzelanie
+- Fast (Pomarańczowy): Szybsze strzelanie
+- Boss (Fioletowy): Najsilniejsi, najcelniejsze strzały
+*/
+
+// ===============================================
+// SYSTEM AUDIO
+// ===============================================
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+const sounds = {
+    // Dźwięk lasera gracza
+    shoot: () => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+    },
+    
+    // Dźwięk zniszczenia wroga
+    enemyHit: () => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+    },
+    
+    // Dźwięk zebrania power-upu
+    powerUp: () => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.4);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+    },
+    
+    // Dźwięk śmierci gracza
+    playerHit: () => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.5);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.5);
+    },
+    
+    // Dźwięk osiągnięcia combo
+    combo: () => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    }
 };
 
-// Pociski gracza
+// ===============================================
+// ELEMENTY DOM
+// ===============================================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const elements = {
+    score: document.getElementById('score'),
+    combo: document.getElementById('combo'),
+    gameOver: document.getElementById('gameOverPopup'),
+    finalScore: document.getElementById('finalScore'),
+    startScreen: document.getElementById('startScreen'),
+    gameContainer: document.getElementById('gameContainer'),
+    nickname: document.getElementById('nicknameInput'),
+    highScores: document.getElementById('highScores'),
+    powerIndicator: document.getElementById('powerIndicator'),
+    rapidIndicator: document.getElementById('rapidIndicator'),
+    shieldIndicator: document.getElementById('shieldIndicator')
+};
+
+// ===============================================
+// STAN GRY
+// ===============================================
+let game = {
+    running: false,
+    score: 0,
+    nickname: '',
+    wave: 1,
+    lastTime: 0,
+    lastEnemyShot: 0,
+    animationId: null,
+    movedDown: false,
+    combo: 0,
+    comboTimer: 0,
+    playerDeathAnimation: false,
+    deathAnimationTimer: 0,
+    gameEnded: false
+};
+
+// ===============================================
+// OBIEKTY GRY
+// ===============================================
+let player = { x: 375, y: 550, width: 50, height: 30, speed: 300, dx: 0 };
 let bullets = [];
-let bulletSpeed = 700; // Piksele na sekundę
-let bulletWidth = 5;
-let bulletHeight = 10;
-let bulletPowerUp = false;
-let powerUpTimer = 0;
-
-// Wrogowie
-let enemies = [];
-let enemyRows = 5;
-let enemyCols = 10;
-let enemyWidth = 40;
-let enemyHeight = 30;
-let enemySpeed = 100; // Piksele na sekundę (ustawiane w setDifficulty)
-let enemyDirection = 1;
-
-// Pociski wrogów
 let enemyBullets = [];
-
-// Power-upy
+let enemies = [];
 let powerUps = [];
+let explosions = [];
 
-// Punkty
-let score = 0;
+// ===============================================
+// WŁAŚCIWOŚCI GRY
+// ===============================================
+let bulletProps = { 
+    width: 5, 
+    height: 10, 
+    speed: 700, 
+    powerUp: false, 
+    timer: 0,
+    rapidFire: false,
+    rapidTimer: 0,
+    canShoot: true
+};
 
-// Timer strzałów wrogów
-let lastEnemyShotTime = 0;
-let enemyShootInterval = 2500; // Milisekundy (ustawiane w setDifficulty)
+let playerProps = {
+    shield: false,
+    shieldTimer: 0
+};
 
-// Stan gry
-let gameRunning = false;
-let animationFrameId;
-let lastTime = 0;
-let isEndlessMode = false;
-let nickname = '';
-let movedDown = false; // Flaga dla przesunięcia wrogów
-let difficultyLevel = 0; // Licznik odrodzeń w trybie Endless
+let enemyProps = { 
+    speed: 100, 
+    shootInterval: 2500, 
+    direction: 1 
+};
 
-// Poziom trudności
-let difficulty = 'medium';
+// ===============================================
+// OBSŁUGA WEJŚCIA
+// ===============================================
+const keys = {};
 
-// Sterowanie
-let keys = {};
 document.addEventListener('keydown', (e) => {
     keys[e.code] = true;
-    if (e.code === 'Space' && !keys['SpaceDown'] && gameRunning) {
+    
+    // Pojedynczy strzał na wciśnięcie spacji (nie trzymanie)
+    if (e.code === 'Space' && game.running && bulletProps.canShoot && !game.playerDeathAnimation) {
         shootBullet();
-        keys['SpaceDown'] = true;
+        bulletProps.canShoot = false;
     }
-    if (e.code === 'Enter' && gameOverPopup.style.display === 'flex') {
+    
+    // Poddanie się klawiszem R
+    if (e.code === 'KeyR' && game.running) {
+        surrenderGame();
+    }
+    
+    // Powrót do menu klawiszem ESC - działa w grze i w game over
+    if (e.code === 'Escape') {
+        if (game.running) {
+            returnToMenu();
+        } else if (elements.gameOver.style.display === 'flex') {
+            returnToMenu();
+        }
+    }
+    
+    // Restart klawiszem Enter
+    if (e.code === 'Enter' && elements.gameOver.style.display === 'flex') {
         restartGame();
     }
-    if (e.code === 'Escape' && gameOverPopup.style.display === 'flex') {
-        returnToMenu();
-    }
-    console.log(`Key down: ${e.code}, keys:`, JSON.stringify(keys));
 });
+
 document.addEventListener('keyup', (e) => {
     keys[e.code] = false;
-    if (e.code === 'Space') keys['SpaceDown'] = false;
-    console.log(`Key up: ${e.code}, keys:`, JSON.stringify(keys));
+    
+    // Pozwalaj strzelać ponownie gdy spacja zostanie zwolniona
+    if (e.code === 'Space') {
+        bulletProps.canShoot = true;
+    }
 });
 
-// Ustawianie parametrów trudności
-function setDifficulty(diff) {
-    difficulty = diff;
-    difficultyLevel = 0; // Resetuj poziom trudności
-    if (difficulty === 'easy') {
-        enemyShootInterval = 4000; // 4 sekundy
-        enemySpeed = 50; // 50 pikseli na sekundę
-    } else if (difficulty === 'medium') {
-        enemyShootInterval = 2500; // 2.5 sekundy
-        enemySpeed = 100; // 100 pikseli na sekundę
-    } else if (difficulty === 'hard') {
-        enemyShootInterval = 1500; // 1.5 sekundy
-        enemySpeed = 150; // 150 pikseli na sekundę
-    }
-    console.log(`Difficulty: ${difficulty}, enemySpeed: ${enemySpeed}px/s, enemyShootInterval: ${enemyShootInterval}ms, difficultyLevel: ${difficultyLevel}`);
-}
+// ===============================================
+// SYSTEM NAJLEPSZYCH WYNIKÓW Z LOCALSTORAGE
+// ===============================================
+let highScoresData = [];
 
-// Zwiększanie trudności w trybie Endless
-function increaseDifficulty() {
-    difficultyLevel++;
-    enemySpeed = Math.min(650, enemySpeed + 50); // Max 650px/s
-    enemyShootInterval = Math.max(500, enemyShootInterval - 250); // Min 500ms
-    console.log(`Endless mode difficulty increased: difficultyLevel: ${difficultyLevel}, enemySpeed: ${enemySpeed}px/s, enemyShootInterval: ${enemyShootInterval}ms`);
-}
-
-// Tabela wyników
-function saveHighScore() {
-    if (!nickname) nickname = 'Anonymous';
-    let highScores = JSON.parse(localStorage.getItem('highScores')) || [];
-    
-    // Dodaj nowy wynik
-    const existingScore = highScores.find(entry => entry.nickname === nickname);
-    if (existingScore) {
-        // Nadpisz tylko jeśli nowy wynik jest wyższy
-        if (score > existingScore.score) {
-            highScores = highScores.filter(entry => entry.nickname !== nickname);
-            highScores.push({ 
-                nickname, 
-                score, 
-                timestamp: Date.now() 
-            });
+/**
+ * Ładuje najlepsze wyniki z localStorage
+ */
+function loadHighScores() {
+    try {
+        const stored = localStorage.getItem('spaceInvadersHighScores');
+        if (stored) {
+            highScoresData = JSON.parse(stored);
         } else {
-            console.log(`High score not saved (lower score for ${nickname}): current: ${existingScore.score}, new: ${score}, mode: Endless`);
-            return;
+            // Domyślne wyniki jeśli nie ma zapisanych
+            highScoresData = [
+                { nickname: "RobotDestroyer", score: 2500 },
+                { nickname: "SpaceCommander", score: 2000 },
+                { nickname: "WaveRider", score: 1500 },
+                { nickname: "LaserMaster", score: 1000 }
+            ];
+            saveHighScoresToStorage();
         }
-    } else {
-        highScores.push({ 
-            nickname, 
-            score, 
-            timestamp: Date.now() 
-        });
+    } catch (e) {
+        console.error('Błąd podczas ładowania wyników:', e);
+        // Fallback do domyślnych wyników
+        highScoresData = [
+            { nickname: "RobotDestroyer", score: 2500 },
+            { nickname: "SpaceCommander", score: 2000 },
+            { nickname: "WaveRider", score: 1500 },
+            { nickname: "LaserMaster", score: 1000 }
+        ];
     }
-
-    // Sortuj i ogranicz do 10
-    highScores.sort((a, b) => b.score - a.score);
-    if (highScores.length > 10) highScores.length = 10;
-    
-    localStorage.setItem('highScores', JSON.stringify(highScores));
-    console.log(`High score saved for ${nickname}: score: ${score}, mode: Endless, total scores: ${highScores.length}`);
-    updateHighScoresTable();
 }
 
-function updateHighScoresTable() {
-    let highScores = JSON.parse(localStorage.getItem('highScores')) || [];
-    console.log('Loaded highScores from localStorage:', highScores);
-    
-    // Domyślne wyniki
-    const defaultScores = [
-        { nickname: "ArcadeMaster", score: 500, timestamp: Date.now() },
-        { nickname: "SpaceAce", score: 300, timestamp: Date.now() },
-        { nickname: "InvaderKiller", score: 100, timestamp: Date.now() }
-    ];
-    
-    // Jeśli highScores puste, dodaj domyślne
-    if (highScores.length === 0) {
-        highScores = [...defaultScores];
-        console.log('Initialized highScores with defaults:', highScores);
-    } else {
-        // Dodaj brakujące domyślne wyniki
-        defaultScores.forEach(defaultScore => {
-            if (!highScores.some(entry => entry.nickname === defaultScore.nickname)) {
-                highScores.push(defaultScore);
-                console.log(`Added default score: ${defaultScore.nickname}, ${defaultScore.score}`);
-            }
-        });
+/**
+ * Zapisuje najlepsze wyniki do localStorage
+ */
+function saveHighScoresToStorage() {
+    try {
+        localStorage.setItem('spaceInvadersHighScores', JSON.stringify(highScoresData));
+    } catch (e) {
+        console.error('Błąd podczas zapisywania wyników:', e);
     }
+}
 
-    // Sortuj i ogranicz do 10
-    highScores.sort((a, b) => b.score - a.score);
-    if (highScores.length > 10) highScores.length = 10;
+/**
+ * Zapisuje najlepszy wynik gracza
+ * Sprawdza czy gracz już istnieje w tabeli i aktualizuje jego wynik jeśli jest lepszy
+ */
+function saveHighScore() {
+    if (!game.nickname) game.nickname = 'Anonymous';
     
-    // Zapisz do localStorage
-    localStorage.setItem('highScores', JSON.stringify(highScores));
-    console.log('Saved highScores to localStorage:', highScores);
-
-    // Aktualizuj tabelę
-    highScoresTable.innerHTML = `
-        <tr>
-            <th>Rank</th>
-            <th>Nickname</th>
-            <th>Score</th>
-        </tr>
-    `;
-    highScores.forEach((entry, index) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${entry.nickname}</td>
-            <td>${entry.score}</td>
-        `;
-        highScoresTable.appendChild(row);
+    const existing = highScoresData.findIndex(s => s.nickname === game.nickname);
+    if (existing !== -1) {
+        if (game.score <= highScoresData[existing].score) return;
+        highScoresData.splice(existing, 1);
+    }
+    
+    highScoresData.push({ 
+        nickname: game.nickname, 
+        score: game.score,
+        timestamp: Date.now()
     });
-    console.log('High scores table updated, rendered:', highScores);
-    console.log('Table HTML:', highScoresTable.outerHTML);
+    
+    highScoresData.sort((a, b) => b.score - a.score);
+    if (highScoresData.length > 10) highScoresData.length = 10;
+    
+    saveHighScoresToStorage();
+    updateHighScores();
 }
 
-// Inicjalizacja gry
+/**
+ * Aktualizuje tabelę najlepszych wyników w interfejsie
+ */
+function updateHighScores() {
+    elements.highScores.innerHTML = '<tr><th>Rank</th><th>Player</th><th>Score</th></tr>';
+    highScoresData.forEach((entry, i) => {
+        const row = elements.highScores.insertRow();
+        row.innerHTML = `<td>${i + 1}</td><td>${entry.nickname}</td><td>${entry.score}</td>`;
+    });
+}
+
+// ===============================================
+// SYSTEM EKSPLOZJI
+// ===============================================
+/**
+ * Tworzy efekt eksplozji z cząsteczkami
+ * @param {number} x - pozycja X eksplozji
+ * @param {number} y - pozycja Y eksplozji
+ * @param {number} width - szerokość obiektu eksplodującego
+ * @param {number} height - wysokość obiektu eksplodującego
+ * @param {string} color - kolor eksplozji
+ */
+function createExplosion(x, y, width, height, color = 'orange') {
+    const fragments = [];
+    const fragmentSize = Math.max(2, Math.min(6, width / 8));
+    const fragmentsPerRow = Math.ceil(width / fragmentSize);
+    const fragmentsPerCol = Math.ceil(height / fragmentSize);
+    
+    for (let row = 0; row < fragmentsPerCol; row++) {
+        for (let col = 0; col < fragmentsPerRow; col++) {
+            fragments.push({
+                x: x + col * fragmentSize,
+                y: y + row * fragmentSize,
+                width: Math.min(fragmentSize, width - col * fragmentSize),
+                height: Math.min(fragmentSize, height - row * fragmentSize),
+                vx: (Math.random() - 0.5) * 300 + (col - fragmentsPerRow/2) * 80,
+                vy: (Math.random() - 0.5) * 300 + (row - fragmentsPerCol/2) * 80 - 150,
+                life: 1.0,
+                decay: Math.random() * 0.015 + 0.008,
+                color: color
+            });
+        }
+    }
+    
+    explosions.push({ fragments: fragments });
+}
+
+// ===============================================
+// SYSTEM COMBO
+// ===============================================
+/**
+ * Dodaje punkt do combo i nalicza bonus jeśli combo jest wystarczająco wysokie
+ */
+function addCombo() {
+    game.combo++;
+    game.comboTimer = 3.0;
+    
+    if (game.combo >= 3) {
+        const bonus = game.combo * 10;
+        game.score += bonus;
+        elements.combo.textContent = `COMBO x${game.combo} (+${bonus})`;
+        elements.combo.classList.add('combo-active');
+        sounds.combo();
+    } else {
+        elements.combo.textContent = `Combo x${game.combo}`;
+        elements.combo.classList.remove('combo-active');
+    }
+}
+
+/**
+ * Resetuje combo gracza
+ */
+function resetCombo() {
+    game.combo = 0;
+    elements.combo.textContent = '';
+    elements.combo.classList.remove('combo-active');
+}
+
+// ===============================================
+// PROGRESJA FAL
+// ===============================================
+/**
+ * Zwiększa trudność gry po zakończeniu fali
+ * Wrogowie stają się szybsi i częściej strzelają
+ */
+function increaseDifficulty() {
+    game.wave++;
+    enemyProps.speed = Math.min(400, enemyProps.speed + 30);
+    enemyProps.shootInterval = Math.max(800, enemyProps.shootInterval - 200);
+}
+
+// ===============================================
+// INICJALIZACJA GRY
+// ===============================================
+/**
+ * Inicjalizuje nową grę - resetuje wszystkie obiekty i właściwości do stanu początkowego
+ */
 function initGame() {
-    player = {
-        x: canvas.width / 2 - 25,
-        y: canvas.height - 50,
-        width: 50,
-        height: 30,
-        speed: 300,
-        dx: 0
-    };
+    player = { x: 375, y: 550, width: 50, height: 30, speed: 300, dx: 0 };
     bullets = [];
     enemyBullets = [];
     powerUps = [];
-    score = 0; // Zawsze resetuj wynik
-    difficultyLevel = 0; // Zawsze resetuj poziom trudności
-    bulletPowerUp = false;
-    bulletWidth = 5;
-    bulletSpeed = 700;
-    powerUpTimer = 0;
-    lastEnemyShotTime = 0;
-    movedDown = false;
-    scoreDisplay.textContent = 'Score: ' + score; // Aktualizuj wyświetlanie wyniku
-    powerUpMessage.textContent = '';
-    powerUpMessage.classList.remove('power-up-active');
+    explosions = [];
+    game.score = 0;
+    game.wave = 1;
+    game.combo = 0;
+    game.comboTimer = 0;
+    game.playerDeathAnimation = false;
+    game.deathAnimationTimer = 0;
+    game.gameEnded = false;
+    
+    // Resetuj power-upy
+    bulletProps = { 
+        width: 5, height: 10, speed: 700, powerUp: false, timer: 0,
+        rapidFire: false, rapidTimer: 0, canShoot: true
+    };
+    playerProps = { shield: false, shieldTimer: 0 };
+    enemyProps = { speed: 100, shootInterval: 2500, direction: 1 };
+    
+    game.lastEnemyShot = 0;
+    game.movedDown = false;
+    elements.score.textContent = 'Score: 0';
+    clearPowerUpIndicators();
+    resetCombo();
     initEnemies();
-    console.log(`Game initialized, score: ${score}, scoreDisplay: ${scoreDisplay.textContent}, enemies: ${enemies.length}, player: x=${player.x}, y=${player.y}`);
 }
 
-// Inicjalizacja wrogów
+/**
+ * Czyści wszystkie wskaźniki power-upów
+ */
+function clearPowerUpIndicators() {
+    elements.powerIndicator.classList.remove('active');
+    elements.rapidIndicator.classList.remove('active');
+    elements.shieldIndicator.classList.remove('active');
+}
+
+/**
+ * Inicjalizuje formację wrogów na początku każdej fali
+ */
 function initEnemies() {
     enemies = [];
-    for (let row = 0; row < enemyRows; row++) {
-        for (let col = 0; col < enemyCols; col++) {
-            const enemyY = row * (enemyHeight + 10) + 50;
+    // Tworzy formację wrogów
+    for (let row = 0; row < 5; row++) {
+        for (let col = 0; col < 10; col++) {
             enemies.push({
-                x: col * (enemyWidth + 10) + 50,
-                y: enemyY,
-                width: enemyWidth,
-                height: enemyHeight,
+                x: col * 60 + 70,
+                y: row * 50 + 50,
+                width: 40,
+                height: 30,
                 alive: true,
-                col: col,
-                row: row
+                col, row,
+                type: row === 0 ? 'boss' : row <= 2 ? 'fast' : 'normal'
             });
-            console.log(`Enemy initialized: row=${row}, col=${col}, x=${col * (enemyWidth + 10) + 50}, y=${enemyY}`);
         }
     }
-    console.log('Enemies initialized:', enemies.length);
 }
 
-// Strzał gracza
+// ===============================================
+// SYSTEM WALKI
+// ===============================================
+/**
+ * Wystrzeliwuje pocisk z pozycji gracza
+ * Jeśli aktywny jest rapid fire, dodaje dodatkowy pocisk z opóźnieniem
+ */
 function shootBullet() {
+    // Sprawdzenie rapid fire
+    if (bulletProps.rapidFire) {
+        setTimeout(() => {
+            if (bulletProps.rapidFire && game.running) {
+                bullets.push({
+                    x: player.x + player.width / 2 - bulletProps.width / 2,
+                    y: player.y,
+                    width: bulletProps.width,
+                    height: bulletProps.height,
+                    speed: bulletProps.speed
+                });
+                sounds.shoot();
+            }
+        }, 50);
+    }
+    
     bullets.push({
-        x: player.x + player.width / 2 - bulletWidth / 2,
+        x: player.x + player.width / 2 - bulletProps.width / 2,
         y: player.y,
-        width: bulletWidth,
-        height: bulletHeight,
-        speed: bulletSpeed
+        width: bulletProps.width,
+        height: bulletProps.height,
+        speed: bulletProps.speed
     });
-    console.log(`Bullet shot: x=${bullets[bullets.length-1].x}, y=${bullets[bullets.length-1].y}`);
+    sounds.shoot();
 }
 
-// Strzał wroga (losowy kierunek)
+/**
+ * Wróg strzela inteligentnie w kierunku gracza
+ * @param {Object} enemy - obiekt wroga który strzela
+ */
 function enemyShoot(enemy) {
-    const randomAngle = (Math.random() - 0.5) * Math.PI / 4; // Losowy kąt ±22.5 stopni
-    const speed = 400; // 400 pikseli na sekundę
+    // System inteligentnego celowania
+    const dx = (player.x + player.width/2) - (enemy.x + enemy.width/2);
+    const dy = (player.y + player.height/2) - (enemy.y + enemy.height);
+    const distance = Math.sqrt(dx*dx + dy*dy);
+    
+    const speed = 350;
+    const accuracy = enemy.type === 'boss' ? 0.8 : enemy.type === 'fast' ? 0.6 : 0.4;
+    
+    let targetX = dx / distance;
+    let targetY = dy / distance;
+    
+    // Dodaje losowość bazującą na celności
+    targetX += (Math.random() - 0.5) * (1 - accuracy);
+    targetY += (Math.random() - 0.5) * (1 - accuracy);
+    
     enemyBullets.push({
         x: enemy.x + enemy.width / 2 - 2.5,
         y: enemy.y + enemy.height,
-        width: 5,
-        height: 10,
-        speedX: speed * Math.sin(randomAngle),
-        speedY: speed * Math.cos(randomAngle)
+        width: 5, height: 10,
+        speedX: speed * targetX,
+        speedY: speed * targetY,
+        type: enemy.type
     });
-    console.log(`Enemy bullet shot: x=${enemyBullets[enemyBullets.length-1].x}, y=${enemyBullets[enemyBullets.length-1].y}`);
 }
 
-// Znajdź najniższego wroga w danej kolumnie
+/**
+ * Znajduje najniższego żywego wroga w danej kolumnie
+ * @param {number} col - numer kolumny
+ * @returns {Object|null} - najniższy wróg lub null
+ */
 function getLowestEnemyInColumn(col) {
-    let lowestEnemy = null;
-    let maxRow = -1;
-    enemies.forEach(enemy => {
-        if (enemy.alive && enemy.col === col && enemy.row > maxRow) {
-            lowestEnemy = enemy;
-            maxRow = enemy.row;
-        }
-    });
-    return lowestEnemy;
+    return enemies.filter(e => e.alive && e.col === col)
+                  .reduce((lowest, enemy) => 
+                      !lowest || enemy.row > lowest.row ? enemy : lowest, null);
 }
 
-// Sprawdzenie kolizji
-function checkCollision(rect1, rect2) {
-    return rect1.x < rect2.x + rect2.width &&
-           rect1.x + rect1.width > rect2.x &&
-           rect1.y < rect2.y + rect2.height &&
-           rect1.y + rect1.height > rect2.y;
+/**
+ * Sprawdza kolizję między dwoma obiektami prostokątnymi
+ * @param {Object} a - pierwszy obiekt
+ * @param {Object} b - drugi obiekt
+ * @returns {boolean} - czy obiekty się zderzają
+ */
+function checkCollision(a, b) {
+    return a.x < b.x + b.width &&
+           a.x + a.width > b.x &&
+           a.y < b.y + b.height &&
+           a.y + a.height > b.y;
 }
 
-// Aktualizacja power-upu
-function updatePowerUp(deltaTime) {
-    if (bulletPowerUp) {
-        powerUpTimer -= deltaTime / 1000; // Odejmuj czas w sekundach
-        powerUpMessage.textContent = 'Power-Up Active!';
-        powerUpMessage.classList.add('power-up-active');
-        powerUpMessage.style.color = 'yellow';
-        if (powerUpTimer <= 0) {
-            bulletPowerUp = false;
-            bulletWidth = 5;
-            bulletSpeed = 700;
-            powerUpMessage.textContent = '';
-            powerUpMessage.classList.remove('power-up-active');
-        }
-    } else {
-        powerUpMessage.textContent = '';
-        powerUpMessage.classList.remove('power-up-active');
-    }
-    console.log(`Power-up updated: bulletPowerUp=${bulletPowerUp}, powerUpTimer=${powerUpTimer}`);
+// ===============================================
+// KONTROLA PRZEPŁYWU GRY
+// ===============================================
+/**
+ * Poddaje grę - rozpoczyna animację śmierci gracza
+ */
+function surrenderGame() {
+    startPlayerDeathAnimation();
 }
 
-// Pokazanie popupu przegranej lub wygranej
+/**
+ * Rozpoczyna animację śmierci gracza - używane dla WSZYSTKICH typów śmierci
+ * @param {string} reason - powód śmierci (bullet, collision, surrender, bottom)
+ */
+function startPlayerDeathAnimation(reason = 'bullet') {
+    if (game.playerDeathAnimation || game.gameEnded) return; // Zapobiega wielokrotnemu wywołaniu
+    
+    game.running = false; // Zatrzymaj grę natychmiast
+    game.gameEnded = true; // Oznacz grę jako zakończoną
+    game.playerDeathAnimation = true;
+    game.deathAnimationTimer = 1.5; // 1.5 sekundy animacji
+    
+    sounds.playerHit();
+    createExplosion(player.x, player.y, player.width, player.height, 'white');
+    
+    // Natychmiast pokaż game over ale kontynuuj animację
+    setTimeout(() => {
+        showGameOver(false);
+    }, 100); // Małe opóźnienie żeby animacja się rozpoczęła
+}
+
+/**
+ * Pokazuje ekran końca gry
+ * @param {boolean} isWin - czy gracz wygrał
+ */
 function showGameOver(isWin) {
-    gameRunning = false;
-    cancelAnimationFrame(animationFrameId);
-    finalScoreDisplay.textContent = `Score: ${score}`;
-    gameOverPopup.querySelector('h2').textContent = isWin ? 'Won!' : 'Lost!';
-    gameOverPopup.style.display = 'flex';
-    console.log(`Game over, isEndlessMode: ${isEndlessMode}, difficulty: ${difficulty}, score: ${score}, nickname: ${nickname}`);
-    if (isEndlessMode) {
-        console.log(`Saving high score for Endless mode, score: ${score}, nickname: ${nickname}`);
-        saveHighScore();
-    } else {
-        console.log(`Skipping high score save for non-Endless mode (${difficulty}), score: ${score}, nickname: ${nickname}`);
-    }
+    elements.finalScore.textContent = `Score: ${game.score} | Wave: ${game.wave}`;
+    elements.gameOver.querySelector('h2').textContent = isWin ? 'Victory!' : 'Game Over';
+    elements.gameOver.style.display = 'flex';
+    saveHighScore();
 }
 
-// Powrót do menu wyboru poziomu trudności
+/**
+ * Powraca do menu głównego
+ */
 function returnToMenu() {
-    gameRunning = false;
-    cancelAnimationFrame(animationFrameId);
-    gameOverPopup.style.display = 'none';
-    gameContainer.style.display = 'none';
-    startScreen.style.display = 'block';
-    isEndlessMode = false;
-    nicknameInput.value = '';
-    initGame();
-    updateHighScoresTable();
-    console.log('Returned to difficulty selection menu');
+    game.running = false;
+    game.playerDeathAnimation = false;
+    game.gameEnded = false;
+    cancelAnimationFrame(game.animationId);
+    elements.gameOver.style.display = 'none';
+    elements.gameContainer.classList.add('hidden');
+    elements.startScreen.style.display = 'block';
+    elements.nickname.value = '';
+    updateHighScores();
 }
 
-returnToMenuButton.addEventListener('click', returnToMenu);
-
-// Rozpoczęcie gry z wybranym poziomem trudności
-function startGame(diff, endless = false) {
-    nickname = nicknameInput.value.trim() || 'Anonymous';
-    isEndlessMode = endless;
-    setDifficulty(diff);
-    startScreen.style.display = 'none';
-    gameContainer.style.display = 'flex';
+/**
+ * Rozpoczyna nową grę
+ */
+function startGame() {
+    audioCtx.resume();
+    game.nickname = elements.nickname.value.trim() || 'Anonymous';
+    elements.startScreen.style.display = 'none';
+    elements.gameContainer.classList.remove('hidden');
     initGame();
-    gameRunning = true;
-    lastTime = 0;
-    console.log(`Game started, difficulty: ${diff}, isEndlessMode: ${isEndlessMode}, nickname: ${nickname}, Player: x=${player.x}, y=${player.y}, Enemies: ${enemies.length}`);
+    game.running = true;
+    game.lastTime = 0;
     requestAnimationFrame(gameLoop);
 }
 
-easyButton.addEventListener('click', () => startGame('easy', false));
-mediumButton.addEventListener('click', () => startGame('medium', false));
-hardButton.addEventListener('click', () => startGame('hard', false));
-endlessButton.addEventListener('click', () => startGame(difficulty, true));
-
-// Restart gry
+/**
+ * Restartuje grę po końcu
+ */
 function restartGame() {
-    gameRunning = false;
-    cancelAnimationFrame(animationFrameId);
-    gameOverPopup.style.display = 'none';
-    score = 0; // Resetuj wynik
-    difficultyLevel = 0; // Resetuj poziom trudności
-    scoreDisplay.textContent = 'Score: ' + score; // Aktualizuj wyświetlanie wyniku
+    elements.gameOver.style.display = 'none';
     initGame();
-    setDifficulty(difficulty);
-    gameRunning = true;
-    lastTime = 0;
-    console.log(`Game restarted, score: ${score}, scoreDisplay: ${scoreDisplay.textContent}, difficultyLevel: 0, difficulty: ${difficulty}, isEndlessMode: ${isEndlessMode}`);
+    game.running = true;
+    game.lastTime = 0;
     requestAnimationFrame(gameLoop);
 }
 
-restartButton.addEventListener('click', restartGame);
+// ===============================================
+// GŁÓWNA PĘTLA GRY
+// ===============================================
+/**
+ * Aktualizuje stan gry w każdej klatce
+ * @param {number} dt - czas delta między klatkami
+ */
+function update(dt) {
+    // Zawsze kontynuuj animację śmierci gracza
+    if (game.playerDeathAnimation) {
+        game.deathAnimationTimer -= dt;
+        if (game.deathAnimationTimer <= 0) {
+            game.playerDeathAnimation = false;
+            // Animacja zakończona, ale game over już jest pokazane
+        }
+    }
 
-// Ruch i logika gry
-function update(deltaTime) {
-    if (!gameRunning) {
-        console.log('Update skipped, gameRunning:', gameRunning);
+    // Jeśli gra nie działa, aktualizuj tylko eksplozje
+    if (!game.running) {
+        // Aktualizuj eksplozje nawet po zakończeniu gry
+        explosions.forEach((explosion, expIndex) => {
+            explosion.fragments.forEach((fragment, fragIndex) => {
+                fragment.x += fragment.vx * dt;
+                fragment.y += fragment.vy * dt;
+                fragment.vy += 400 * dt; // grawitacja
+                fragment.life -= fragment.decay;
+                
+                if (fragment.life <= 0) {
+                    explosion.fragments.splice(fragIndex, 1);
+                }
+            });
+            
+            if (explosion.fragments.length === 0) {
+                explosions.splice(expIndex, 1);
+            }
+        });
         return;
     }
 
-    console.log('Updating, deltaTime:', deltaTime, 'gameRunning:', gameRunning, 'player: x=', player.x, 'y=', player.y, 'keys:', JSON.stringify(keys));
+    // Ruch gracza (tylko jeśli nie ma animacji śmierci)
+    if (!game.playerDeathAnimation) {
+        player.dx = keys.ArrowLeft ? -player.speed : keys.ArrowRight ? player.speed : 0;
+        player.x = Math.max(0, Math.min(canvas.width - player.width, player.x + player.dx * dt));
+    }
 
-    // Delta time w sekundach
-    let dt = deltaTime / 1000;
-    if (dt < 0 || isNaN(dt)) dt = 0;
-
-    // Ruch gracza
-    if (keys['ArrowLeft']) player.dx = -player.speed;
-    else if (keys['ArrowRight']) player.dx = player.speed;
-    else player.dx = 0;
-
-    player.x += player.dx * dt;
-    if (player.x < 0) player.x = 0;
-    if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
-    console.log(`Player updated: x=${player.x}, y=${player.y}, dx=${player.dx}, dt=${dt}`);
-
-    // Ruch pocisków gracza
-    bullets.forEach((bullet, index) => {
+    // Aktualizuj pociski
+    bullets.forEach((bullet, i) => {
         bullet.y -= bullet.speed * dt;
-        if (bullet.y < 0) bullets.splice(index, 1);
-        console.log(`Bullet updated: x=${bullet.x}, y=${bullet.y}, index=${index}`);
+        if (bullet.y < 0) bullets.splice(i, 1);
     });
 
-    // Ruch pocisków wrogów
-    enemyBullets.forEach((bullet, index) => {
+    // Aktualizuj eksplozje
+    explosions.forEach((explosion, expIndex) => {
+        explosion.fragments.forEach((fragment, fragIndex) => {
+            fragment.x += fragment.vx * dt;
+            fragment.y += fragment.vy * dt;
+            fragment.vy += 400 * dt; // grawitacja
+            fragment.life -= fragment.decay;
+            
+            if (fragment.life <= 0) {
+                explosion.fragments.splice(fragIndex, 1);
+            }
+        });
+        
+        if (explosion.fragments.length === 0) {
+            explosions.splice(expIndex, 1);
+        }
+    });
+
+    // Aktualizuj pociski wrogów
+    enemyBullets.forEach((bullet, i) => {
         bullet.x += bullet.speedX * dt;
         bullet.y += bullet.speedY * dt;
-        if (bullet.y > canvas.height || bullet.x < 0 || bullet.x > canvas.width) {
-            enemyBullets.splice(index, 1);
+        if (bullet.y > canvas.height || bullet.x < -50 || bullet.x > canvas.width + 50) {
+            enemyBullets.splice(i, 1);
         }
-
-        // Kolizja z graczem
-        if (checkCollision(bullet, player)) {
-            showGameOver(false);
+        // Sprawdź kolizję z graczem
+        if (!game.playerDeathAnimation && !game.gameEnded && checkCollision(bullet, player)) {
+            enemyBullets.splice(i, 1);
+            if (!playerProps.shield) {
+                startPlayerDeathAnimation('bullet');
+                return;
+            }
         }
-        console.log(`Enemy bullet updated: x=${bullet.x}, y=${bullet.y}, index=${index}`);
     });
 
     // Ruch wrogów
     let edge = false;
     enemies.forEach(enemy => {
         if (!enemy.alive) return;
-        enemy.x += enemySpeed * enemyDirection * dt;
+        enemy.x += enemyProps.speed * enemyProps.direction * dt;
         if (enemy.x + enemy.width > canvas.width || enemy.x < 0) edge = true;
-        console.log(`Enemy updated: x=${enemy.x}, y=${enemy.y}, alive=${enemy.alive}`);
     });
 
-    if (edge && !movedDown) {
-        enemyDirection *= -1;
+    if (edge && !game.movedDown) {
+        enemyProps.direction *= -1;
         enemies.forEach(enemy => {
-            if (!enemy.alive) return;
-            enemy.y += 20;
-            if (enemy.y + enemy.height > canvas.height) enemy.y = canvas.height - enemy.height;
-        });
-        movedDown = true;
-        console.log('Enemies moved down');
-    } else if (!edge) {
-        movedDown = false;
-    }
-
-    // Kolizje wrogów z graczem lub dolną krawędzią
-    enemies.forEach(enemy => {
-        if (!enemy.alive) return;
-        if (checkCollision(enemy, player) || enemy.y + enemy.height >= canvas.height) {
-            showGameOver(false);
-        }
-    });
-
-    // Strzelanie wrogów
-    const currentTime = performance.now();
-    if (currentTime - lastEnemyShotTime >= enemyShootInterval) {
-        let aliveCols = [];
-        for (let col = 0; col < enemyCols; col++) {
-            if (getLowestEnemyInColumn(col)) {
-                aliveCols.push(col);
-            }
-        }
-        if (aliveCols.length > 0) {
-            let randomCol = aliveCols[Math.floor(Math.random() * aliveCols.length)];
-            let shooter = getLowestEnemyInColumn(randomCol);
-            if (shooter) {
-                enemyShoot(shooter);
-            }
-        }
-        lastEnemyShotTime = currentTime;
-    }
-
-    // Kolizje pocisków z wrogami
-    bullets.forEach((bullet, bIndex) => {
-        enemies.forEach((enemy, eIndex) => {
-            if (!enemy.alive) return;
-            if (checkCollision(bullet, enemy)) {
-                enemy.alive = false;
-                bullets.splice(bIndex, 1);
-                score += 10;
-                scoreDisplay.textContent = 'Score: ' + score;
-
-                // Losowy power-up
-                if (Math.random() < 0.2) {
-                    powerUps.push({
-                        x: enemy.x,
-                        y: enemy.y,
-                        width: 20,
-                        height: 20
-                    });
-                    console.log(`Power-up spawned: x=${powerUps[powerUps.length-1].x}, y=${powerUps[powerUps.length-1].y}`);
+            if (enemy.alive) {
+                enemy.y += 30;
+                // Sprawdź czy wrogowie dotarli do dna ekranu
+                if (enemy.y + enemy.height >= canvas.height - 50) {
+                    startPlayerDeathAnimation('bottom');
+                    return;
                 }
             }
         });
-    });
+        game.movedDown = true;
+    } else if (!edge) {
+        game.movedDown = false;
+    }
 
-    // Ruch i kolizje power-upów
-    powerUps.forEach((powerUp, index) => {
-        powerUp.y += 200 * dt; // 200 pikseli na sekundę
-        if (powerUp.y > canvas.height) powerUps.splice(index, 1);
+    // Sprawdź kolizję wróg-gracz
+    if (!game.playerDeathAnimation && !game.gameEnded) {
+        enemies.forEach(enemy => {
+            if (enemy.alive && checkCollision(enemy, player)) {
+                if (!playerProps.shield) {
+                    startPlayerDeathAnimation('collision');
+                    return;
+                }
+            }
+        });
+    }
 
-        if (checkCollision(powerUp, player)) {
-            powerUps.splice(index, 1);
-            bulletPowerUp = true;
-            bulletWidth = 15;
-            bulletSpeed = 1000;
-            powerUpTimer = 10; // 10 sekund
-            console.log('Power-up collected, timer:', powerUpTimer);
+    // Strzelanie wrogów
+    const now = performance.now();
+    if (now - game.lastEnemyShot >= enemyProps.shootInterval) {
+        const aliveCols = [...new Set(enemies.filter(e => e.alive).map(e => e.col))];
+        if (aliveCols.length > 0) {
+            const randomCol = aliveCols[Math.floor(Math.random() * aliveCols.length)];
+            const shooter = getLowestEnemyInColumn(randomCol);
+            if (shooter) enemyShoot(shooter);
         }
-        console.log(`Power-up updated: x=${powerUp.x}, y=${powerUp.y}, index=${index}`);
+        game.lastEnemyShot = now;
+    }
+
+    // Kolizje pocisk-wróg
+    bullets.forEach((bullet, bIndex) => {
+        enemies.forEach((enemy, eIndex) => {
+            if (!enemy.alive || !checkCollision(bullet, enemy)) return;
+            
+            enemy.alive = false;
+            bullets.splice(bIndex, 1);
+            
+            // System punktacji
+            let points = enemy.type === 'boss' ? 50 : enemy.type === 'fast' ? 20 : 10;
+            game.score += points;
+            elements.score.textContent = 'Score: ' + game.score;
+            
+            sounds.enemyHit();
+            createExplosion(enemy.x, enemy.y, enemy.width, enemy.height);
+            addCombo();
+
+            // ZREDUKOWANE SZANSE NA POWER-UPY
+            const dropChance = enemy.type === 'boss' ? 0.25 : enemy.type === 'fast' ? 0.08 : 0.03;
+            if (Math.random() < dropChance) {
+                const powerUpType = Math.random();
+                let type = 'rapid';
+                if (powerUpType < 0.35) type = 'power';
+                else if (powerUpType < 0.65) type = 'shield';
+                
+                powerUps.push({ 
+                    x: enemy.x, 
+                    y: enemy.y, 
+                    width: 25, 
+                    height: 25, 
+                    type: type 
+                });
+            }
+        });
     });
 
-    updatePowerUp(deltaTime);
+    // Zbieranie power-upów
+    powerUps.forEach((powerUp, i) => {
+        powerUp.y += 200 * dt;
+        if (powerUp.y > canvas.height) {
+            powerUps.splice(i, 1);
+            return;
+        }
+        
+        if (!game.playerDeathAnimation && !game.gameEnded && checkCollision(powerUp, player)) {
+            powerUps.splice(i, 1);
+            sounds.powerUp();
+            
+            switch(powerUp.type) {
+                case 'power':
+                    bulletProps.powerUp = true;
+                    bulletProps.width = 15;
+                    bulletProps.speed = 1000;
+                    bulletProps.timer = 8;
+                    elements.powerIndicator.classList.add('active');
+                    break;
+                case 'rapid':
+                    bulletProps.rapidFire = true;
+                    bulletProps.rapidTimer = 6;
+                    elements.rapidIndicator.classList.add('active');
+                    break;
+                case 'shield':
+                    playerProps.shield = true;
+                    playerProps.shieldTimer = 5;
+                    elements.shieldIndicator.classList.add('active');
+                    break;
+            }
+        }
+    });
 
-    // Sprawdzenie końca gry lub odrodzenie w trybie Endless
-    let aliveEnemies = enemies.filter(enemy => enemy.alive).length;
+    // Liczniki power-upów
+    if (bulletProps.powerUp) {
+        bulletProps.timer -= dt;
+        if (bulletProps.timer <= 0) {
+            bulletProps.powerUp = false;
+            bulletProps.width = 5;
+            bulletProps.speed = 700;
+            elements.powerIndicator.classList.remove('active');
+        }
+    }
+
+    if (bulletProps.rapidFire) {
+        bulletProps.rapidTimer -= dt;
+        if (bulletProps.rapidTimer <= 0) {
+            bulletProps.rapidFire = false;
+            elements.rapidIndicator.classList.remove('active');
+        }
+    }
+
+    if (playerProps.shield) {
+        playerProps.shieldTimer -= dt;
+        if (playerProps.shieldTimer <= 0) {
+            playerProps.shield = false;
+            elements.shieldIndicator.classList.remove('active');
+        }
+    }
+
+    // Licznik combo
+    if (game.combo > 0) {
+        game.comboTimer -= dt;
+        if (game.comboTimer <= 0) {
+            resetCombo();
+        }
+    }
+
+    // Sprawdzenie zakończenia fali
+    const aliveEnemies = enemies.filter(e => e.alive).length;
     if (aliveEnemies === 0) {
-        if (isEndlessMode) {
-            console.log(`Wave ${difficultyLevel + 1} cleared, preparing next wave`);
-            increaseDifficulty();
-            initEnemies();
-            console.log('Endless mode: Enemies respawned');
-        } else {
-            showGameOver(true);
-        }
+        increaseDifficulty();
+        initEnemies();
+        game.score += 100 * game.wave;
+        elements.score.textContent = 'Score: ' + game.score;
     }
 }
 
-// Rysowanie
-function draw() {
-    console.log('Draw called, gameRunning:', gameRunning);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+// ===============================================
+// SYSTEM RENDEROWANIA
+// ===============================================
+/**
+ * Rysuje robota o zadanych parametrach
+ * @param {number} x - pozycja X
+ * @param {number} y - pozycja Y  
+ * @param {number} width - szerokość
+ * @param {number} height - wysokość
+ * @param {string} color - kolor robota
+ */
+function drawRobot(x, y, width, height, color) {
+    ctx.fillStyle = color;
+    // Główne ciało
+    ctx.fillRect(x + width * 0.2, y + height * 0.3, width * 0.6, height * 0.7);
+    // Głowa
+    ctx.fillRect(x + width * 0.3, y, width * 0.4, height * 0.4);
+    // Ramiona
+    ctx.fillRect(x, y + height * 0.4, width * 0.2, height * 0.3);
+    ctx.fillRect(x + width * 0.8, y + height * 0.4, width * 0.2, height * 0.3);
+    // Oczy
+    ctx.fillStyle = 'red';
+    ctx.fillRect(x + width * 0.35, y + height * 0.1, width * 0.1, height * 0.1);
+    ctx.fillRect(x + width * 0.55, y + height * 0.1, width * 0.1, height * 0.1);
+}
 
-    // Czarne tło
+/**
+ * Rysuje statek kosmiczny gracza
+ * @param {number} x - pozycja X
+ * @param {number} y - pozycja Y
+ * @param {number} width - szerokość  
+ * @param {number} height - wysokość
+ */
+function drawSpaceship(x, y, width, height) {
+    ctx.fillStyle = '#00aaff';
+    // Główny kadłub
+    ctx.beginPath();
+    ctx.moveTo(x + width/2, y);
+    ctx.lineTo(x + width * 0.8, y + height);
+    ctx.lineTo(x + width * 0.2, y + height);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Kokpit
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x + width * 0.4, y + height * 0.2, width * 0.2, height * 0.3);
+    
+    // Silniki
+    ctx.fillStyle = '#ff4444';
+    ctx.fillRect(x + width * 0.1, y + height * 0.8, width * 0.1, height * 0.2);
+    ctx.fillRect(x + width * 0.8, y + height * 0.8, width * 0.1, height * 0.2);
+}
+
+/**
+ * Rysuje power-up w kształcie rombu
+ * @param {number} x - pozycja X środka
+ * @param {number} y - pozycja Y środka
+ * @param {number} size - rozmiar rombu
+ * @param {string} color - kolor power-upu
+ */
+function drawDiamond(x, y, size, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y - size/2);  // górny wierzchołek
+    ctx.lineTo(x + size/2, y);  // prawy wierzchołek
+    ctx.lineTo(x, y + size/2);  // dolny wierzchołek
+    ctx.lineTo(x - size/2, y);  // lewy wierzchołek
+    ctx.closePath();
+    ctx.fill();
+}
+
+/**
+ * Główna funkcja renderująca wszystkie elementy gry
+ */
+function draw() {
+    // Wyczyść canvas
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    console.log('Filled background: black');
 
-    // Gracz z animacją
-    ctx.save();
-    if (bulletPowerUp) {
-        const scale = 1 + 0.2 * Math.sin(performance.now() / 100); // Pulsowanie
-        console.log(`Power-up active, player scale: ${scale}`);
-        ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
-        ctx.scale(scale, scale);
-        ctx.translate(-(player.x + player.width / 2), -(player.y + player.height / 2));
-    }
+    // Rysuj tło gwiazd
     ctx.fillStyle = 'white';
-    ctx.fillRect(player.x, player.y, player.width, player.height);
-    console.log(`Drawing player: x=${player.x}, y=${player.y}, width=${player.width}, height=${player.height}`);
-    ctx.restore();
+    for (let i = 0; i < 50; i++) {
+        const x = (i * 137) % canvas.width;
+        const y = (i * 219 + performance.now() * 0.05) % canvas.height;
+        ctx.fillRect(x, y, 1, 1);
+    }
 
-    // Pociski gracza
-    ctx.fillStyle = bulletPowerUp ? 'yellow' : 'white';
-    bullets.forEach(bullet => {
-        ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-        console.log(`Drawing bullet: x=${bullet.x}, y=${bullet.y}`);
-    });
-
-    // Wrogowie
-    ctx.fillStyle = 'red';
-    enemies.forEach(enemy => {
-        if (enemy.alive) {
-            ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-            console.log(`Drawing enemy: x=${enemy.x}, y=${enemy.y}, alive=${enemy.alive}`);
+    // Rysuj statek gracza (tylko jeśli nie ma animacji śmierci i gra się nie skończyła)
+    if (!game.playerDeathAnimation && !game.gameEnded) {
+        ctx.save();
+        
+        // Efekt tarczy
+        if (playerProps.shield) {
+            ctx.strokeStyle = 'cyan';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            ctx.lineDashOffset = performance.now() * 0.01;
+            ctx.beginPath();
+            ctx.arc(player.x + player.width/2, player.y + player.height/2, 40, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
         }
-    });
+        
+        drawSpaceship(player.x, player.y, player.width, player.height);
+        ctx.restore();
+    }
 
-    // Pociski wrogów
-    ctx.fillStyle = 'orange';
-    enemyBullets.forEach(bullet => {
+    // Rysuj pociski z ulepszonymi efektami
+    bullets.forEach(bullet => {
+        if (bulletProps.powerUp) {
+            ctx.fillStyle = 'yellow';
+            ctx.shadowColor = 'yellow';
+            ctx.shadowBlur = 10;
+        } else {
+            ctx.fillStyle = '#00ffff';
+            ctx.shadowBlur = 0;
+        }
         ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-        console.log(`Drawing enemy bullet: x=${bullet.x}, y=${bullet.y}`);
+    });
+    ctx.shadowBlur = 0;
+
+    // Rysuj wrogów jako roboty
+    enemies.forEach(enemy => {
+        if (!enemy.alive) return;
+        
+        let color;
+        switch(enemy.type) {
+            case 'boss':
+                color = '#8a2be2';
+                break;
+            case 'fast':
+                color = '#ff6b35';
+                break;
+            default:
+                color = '#ff4444';
+        }
+        drawRobot(enemy.x, enemy.y, enemy.width, enemy.height, color);
     });
 
-    // Power-upy
-    ctx.fillStyle = 'green';
-    powerUps.forEach(powerUp => {
-        ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
-        console.log(`Drawing power-up: x=${powerUp.x}, y=${powerUp.y}`);
+    // Rysuj pociski wrogów
+    enemyBullets.forEach(bullet => {
+        switch(bullet.type) {
+            case 'boss':
+                ctx.fillStyle = '#8a2be2';
+                break;
+            case 'fast':
+                ctx.fillStyle = '#ff6b35';
+                break;
+            default:
+                ctx.fillStyle = '#ff4444';
+        }
+        ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
     });
+
+    // Rysuj power-upy jako romby
+    powerUps.forEach(powerUp => {
+        const time = performance.now() / 200;
+        const pulse = 1 + 0.3 * Math.sin(time);
+        
+        ctx.save();
+        const centerX = powerUp.x + powerUp.width/2;
+        const centerY = powerUp.y + powerUp.height/2;
+        
+        let color;
+        switch(powerUp.type) {
+            case 'power':
+                color = '#ffff00';  // Żółty - Power Shot
+                break;
+            case 'rapid':
+                color = '#00ff88';  // Zielony - Rapid Fire
+                break;
+            case 'shield':
+                color = '#00ffff';  // Cyan - Shield
+                break;
+        }
+        
+        drawDiamond(centerX, centerY, powerUp.width * pulse, color);
+        ctx.restore();
+    });
+
+    // Rysuj eksplozje
+    explosions.forEach(explosion => {
+        explosion.fragments.forEach(fragment => {
+            let r, g, b;
+            switch(fragment.color) {
+                case 'white':
+                    r = 255; g = 255; b = 255;
+                    break;
+                case 'purple':
+                    r = 138; g = 43; b = 226;
+                    break;
+                default:
+                    r = 255; g = Math.floor(100 + fragment.life * 155); b = 0;
+            }
+            
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${fragment.life})`;
+            ctx.fillRect(fragment.x, fragment.y, fragment.width, fragment.height);
+        });
+    });
+
+    // Rysuj wskaźnik fali
+    ctx.fillStyle = 'white';
+    ctx.font = '20px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Wave ${game.wave}`, canvas.width/2, 30);
+    ctx.textAlign = 'left';
 }
 
-// Główna pętla gry
+/**
+ * Główna pętla gry - wywołuje aktualizację i renderowanie
+ * @param {number} timestamp - znacznik czasu klatki
+ */
 function gameLoop(timestamp) {
-    if (!gameRunning) {
-        console.log('Game loop stopped, gameRunning:', gameRunning);
-        return;
-    }
-
-    if (!lastTime) lastTime = timestamp;
-    let deltaTime = timestamp - lastTime;
-    lastTime = timestamp;
-
-    if (deltaTime < 0 || isNaN(deltaTime)) {
-        console.warn('Invalid deltaTime:', deltaTime, 'resetting to 0');
-        deltaTime = 0;
-    }
-
-    console.log('Game loop running, timestamp:', timestamp, 'deltaTime:', deltaTime, 'gameRunning:', gameRunning);
+    if (!game.lastTime) game.lastTime = timestamp;
+    const deltaTime = Math.max(0, Math.min(0.016, (timestamp - game.lastTime) / 1000));
+    game.lastTime = timestamp;
 
     update(deltaTime);
     draw();
-
-    animationFrameId = requestAnimationFrame(gameLoop);
+    
+    // Kontynuuj pętlę jeśli gra działa LUB są eksplozje do wyrenderowania
+    if (game.running || game.playerDeathAnimation || explosions.length > 0) {
+        game.animationId = requestAnimationFrame(gameLoop);
+    }
 }
 
-// Inicjalizacja tabeli wyników przy starcie
-updateHighScoresTable();
+// ===============================================
+// OBSŁUGA ZDARZEŃ
+// ===============================================
+document.getElementById('playButton').onclick = startGame;
+document.getElementById('restartButton').onclick = restartGame;
+document.getElementById('returnToMenuButton').onclick = returnToMenu;
+
+// ===============================================
+// INICJALIZACJA
+// ===============================================
+loadHighScores();
+updateHighScores();

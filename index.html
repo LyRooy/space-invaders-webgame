@@ -7,48 +7,57 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="startScreen">
+    <!-- EKRAN STARTOWY -->
+    <div id="startScreen" class="popup-content">
         <h2>Space Invaders</h2>
         <input type="text" id="nicknameInput" placeholder="Enter username">
         <div>
-            <button id="easyButton">Easy</button>
-            <button id="mediumButton">Medium</button>
-            <button id="hardButton">Hard</button>
-            <button id="endlessButton">Endless</button>
+            <button id="playButton">PLAY</button>
         </div>
         <h3>High Scores</h3>
         <table id="highScores">
-            <tr>
-                <th>Rank</th>
-                <th>Nickname</th>
-                <th>Score</th>
-            </tr>
+            <tr><th>Rank</th><th>Player</th><th>Score</th></tr>
         </table>
     </div>
-    <div id="gameContainer" style="display: none;">
+    
+    <!-- KONTENER GRY -->
+    <div id="gameContainer" class="hidden">
         <div id="canvasAndControls">
             <div id="score">Score: 0</div>
+            <div id="combo"></div>
             <canvas id="gameCanvas" width="800" height="600"></canvas>
-            <div id="powerUpMessage"></div>
+            
+            <!-- WSKAŹNIKI POWER-UPÓW POD CANVAS -->
+            <div id="powerUpContainer">
+                <div id="powerIndicator" class="power-up-indicator">Power Shot</div>
+                <div id="rapidIndicator" class="power-up-indicator">Rapid Fire</div>
+                <div id="shieldIndicator" class="power-up-indicator">Shield</div>
+            </div>
+            
+            <!-- PANEL KONTROLI -->
             <div id="controls">
                 <h3>Controls</h3>
                 <p>← / → : Move Ship</p>
                 <p>Space: Shoot</p>
-                <p>Enter: Replay</p>
-                <p>Esc: Menu</p>
+                <p>Enter: Restart</p>
+                <p>Esc: Back to menu</p>
+                <p>R: Surrender</p>
             </div>
         </div>
     </div>
-    <div id="gameOverPopup">
-        <div id="gameOverContent">
+
+    <!-- POPUP KOŃCA GRY -->
+    <div id="gameOverPopup" class="popup">
+        <div class="popup-content">
             <h2>Game Over</h2>
             <p id="finalScore">Score: 0</p>
-            <div id="popupButtons">
+            <div>
                 <button id="restartButton">Restart</button>
                 <button id="returnToMenuButton">Menu</button>
             </div>
         </div>
     </div>
+
     <script src="scripts.js"></script>
 </body>
 </html>
